@@ -1,94 +1,106 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Mail, Lock, Eye, EyeOff } from "lucide-react";
-import Link from "next/link";
+import React, { useState } from 'react';
+import axios from 'axios';
+import { Eye, EyeOff, Facebook } from 'lucide-react'; 
+import { useRouter } from 'next/navigation'; // ✅ เพิ่มตัวนี้เข้ามา
 
-export default function SignInPage() {
-  const router = useRouter();
+const API_URL = "http://localhost:3333";
+
+export default function LoginPage() {
+  const router = useRouter(); // ✅ ประกาศตัวแปร router
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [formData, setFormData] = useState({ email: "", password: "" });
+  const [error, setError] = useState("");
 
-  const handleSignIn = async (e: React.FormEvent) => {
-  e.preventDefault();
-  try {
-    const res = await fetch("http://localhost:3001/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(formData),
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      localStorage.setItem("user", JSON.stringify(data.user));
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    try {
+      const res = await axios.post(`${API_URL}/auth/login`, { email, password });
       
-      alert("Sign-in successful!");
+      // 1. บันทึก Token
+      localStorage.setItem("token", res.data.access_token);
+      localStorage.setItem("username", res.data.username);
+      localStorage.setItem("user_id", res.data.user_id);
       
-      // Redirect ตามสิทธิ์ผู้ใช้
-      if (data.user.role === 'admin') {
-        router.push("/client");
+      // 2. แจ้งเตือน (หรือจะเอาออกก็ได้ถ้าไม่อยากให้เด้ง)
+      // alert("Login Success!"); 
+      
+      // 3. ✅ สั่งเปลี่ยนหน้าไปที่หน้า Dashboard (หน้าแรก) ทันที
+      router.push("/"); 
+      
+    } catch (err: any) {
+      console.error("Login Error:", err); // ดู Error จริงใน Console (F12)
+      // เช็คว่า Error มาจาก Server หรือเปล่า
+      if (err.response && err.response.status === 400) {
+        setError("Invalid email or password");
       } else {
-        router.push("/my-bot");
+        setError("Something went wrong. Please try again.");
       }
-    } else {
-      const errorData = await res.json();
-      alert(errorData.message || "Invalid credentials");
     }
-  } catch (error) {
-    alert("Connection failed. Please try again.");
-  }
-};
+  };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-white px-4 font-sans">
-      <div className="w-full max-w-md text-center">
-        <h1 className="mb-2 text-4xl font-bold text-black">Sign in</h1>
-        <p className="mb-8 text-gray-400">
-          Don't have account? <Link href="/register" className="text-[#8200DB] hover:underline">Create an account</Link>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-white p-6 text-black">
+      <div className="w-full max-w-md">
+        <h1 className="text-3xl font-bold text-center mb-2">Sign in</h1>
+        <p className="text-center text-slate-400 mb-8">
+          Don’t have account? <a href="/register" className="text-indigo-600 font-bold hover:underline">Sign up</a>
         </p>
 
-        <form onSubmit={handleSignIn} className="space-y-5">
+        <form onSubmit={handleLogin} className="space-y-4">
           <div className="relative">
-            <Mail className="absolute left-4 top-1/2 size-5 -translate-y-1/2 text-gray-400" />
             <input 
               type="email" 
               placeholder="Email" 
+              className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
               required
-              onChange={(e) => setFormData({...formData, email: e.target.value})}
-              className="w-full rounded-2xl border border-gray-300 py-4 pl-12 pr-4 outline-none focus:border-[#8200DB]"
             />
+            <span className="absolute left-3 top-3.5 text-slate-400">✉️</span>
           </div>
 
           <div className="relative">
-            <Lock className="absolute left-4 top-1/2 size-5 -translate-y-1/2 text-gray-400" />
             <input 
               type={showPassword ? "text" : "password"} 
-              placeholder="Password"
+              placeholder="Password" 
+              className="w-full pl-10 pr-10 py-3 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
               required
-              onChange={(e) => setFormData({...formData, password: e.target.value})}
-              className="w-full rounded-2xl border border-gray-300 py-4 pl-12 pr-12 outline-none focus:border-[#8200DB]"
             />
+            <span className="absolute left-3 top-3.5 text-slate-400">🔒</span>
             <button 
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400"
+              className="absolute right-3 top-3.5 text-slate-400 hover:text-indigo-600"
             >
-              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              {showPassword ? <EyeOff size={20}/> : <Eye size={20}/>}
             </button>
           </div>
 
-          <div className="flex items-center gap-2 px-2 text-left">
-            <input type="checkbox" id="remember" className="size-4 rounded border-gray-300 accent-[#8200DB]" />
-            <label htmlFor="remember" className="text-sm font-semibold text-black">Remember me</label>
+          <div className="flex items-center gap-2">
+            <input type="checkbox" id="remember" className="rounded text-indigo-600 focus:ring-indigo-500"/>
+            <label htmlFor="remember" className="text-sm text-slate-600 font-medium">Remember me</label>
           </div>
 
-          <button type="submit" className="w-full rounded-2xl bg-[#8200DB] py-4 text-lg font-bold text-white shadow-lg transition-all hover:bg-[#7100BD]">
+          {error && <div className="text-red-500 text-sm text-center bg-red-50 p-2 rounded-lg">{error}</div>}
+
+          <button 
+            type="submit" 
+            className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-purple-200 transition-all transform active:scale-95"
+          >
             Sign in
           </button>
         </form>
 
-        <button className="mt-6 text-sm text-gray-300 hover:text-gray-500">Forget Password?</button>
+        <div className="mt-4 text-center">
+            <a href="#" className="text-sm text-slate-400 hover:text-indigo-600">Forget Password?</a>
+        </div>
+
       </div>
     </div>
   );
