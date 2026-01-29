@@ -21,11 +21,7 @@ export const metadata: Metadata = {
   description: "ระบบบอทเทรดอัจฉริยะ วิเคราะห์กราฟเทคนิค Real-time แม่นยำ รวดเร็ว และไร้อารมณ์",
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="th" className="scroll-smooth">
       <body
@@ -34,5 +30,5 @@ export default function RootLayout({
         {children}
       </body>
     </html>
-  );
+  )
 }
