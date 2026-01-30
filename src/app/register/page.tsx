@@ -1,100 +1,114 @@
 "use client";
+import React, { useState } from 'react';
+import axios from 'axios';
+import { Eye, EyeOff } from 'lucide-react';
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Mail, Lock, Eye, EyeOff } from "lucide-react";
-import Link from "next/link";
+const API_URL = "http://localhost:3333";
 
-export default function SignUpPage() {
-  const router = useRouter();
+export default function RegisterPage() {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [formData, setFormData] = useState({ email: "", password: "", confirmPassword: "", agree: false });
 
-  const handleSignUp = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.password !== formData.confirmPassword) return alert("Passwords do not match");
+    if (password !== confirmPassword) {
+        alert("Passwords do not match!");
+        return;
+    }
 
     try {
-      const res = await fetch("http://localhost:3001/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
-
-      if (res.ok) {
-        alert("Account created!");
-        router.push("/my-bot");
-      } else {
-        const data = await res.json();
-        alert(data.message || "Registration failed");
-      }
-    } catch (error) {
-      alert("Error connecting to server");
+      await axios.post(`${API_URL}/auth/register`, { name, email, password });
+      alert("Account created! Please log in.");
+      window.location.href = "/login"; // Redirect
+    } catch (err) {
+      alert("Registration failed. Email might be taken.");
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-white px-4 font-sans">
-      <div className="w-full max-w-md text-center">
-        <h1 className="mb-2 text-4xl font-bold text-black">Create an account</h1>
-        <p className="mb-8 text-gray-400">
-          Already have account? <Link href="/login" className="text-[#8200DB] hover:underline">Sign in</Link>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-white p-6">
+      <div className="w-full max-w-md">
+        <h1 className="text-3xl font-bold text-center mb-2">Create an account</h1>
+        <p className="text-center text-slate-400 mb-8">
+          Already have account? <a href="/login" className="text-indigo-600 font-bold hover:underline">Sign in</a>
         </p>
 
-        <form onSubmit={handleSignUp} className="space-y-5">
+        <form onSubmit={handleRegister} className="space-y-4 text-black">
+          
+          {/* Name - เพิ่มเข้ามา */}
           <div className="relative">
-            <Mail className="absolute left-4 top-1/2 size-5 -translate-y-1/2 text-gray-400" />
             <input 
-              type="email" 
-              placeholder="Email" 
+              type="text" 
+              placeholder="Full Name" 
+              className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-300 focus:border-indigo-500 outline-none"
+              value={name}
+              onChange={e => setName(e.target.value)}
               required
-              onChange={(e) => setFormData({...formData, email: e.target.value})}
-              className="w-full rounded-2xl border border-gray-300 py-4 pl-12 pr-4 outline-none focus:border-[#8200DB]" 
             />
+            <span className="absolute left-3 top-3.5 text-slate-400">👤</span>
           </div>
 
           <div className="relative">
-            <Lock className="absolute left-4 top-1/2 size-5 -translate-y-1/2 text-gray-400" />
+            <input 
+              type="email" 
+              placeholder="Email" 
+              className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-300 focus:border-indigo-500 outline-none"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              required
+            />
+            <span className="absolute left-3 top-3.5 text-slate-400">✉️</span>
+          </div>
+
+          <div className="relative">
             <input 
               type={showPassword ? "text" : "password"} 
               placeholder="Password" 
+              className="w-full pl-10 pr-10 py-3 rounded-xl border border-slate-300 focus:border-indigo-500 outline-none"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
               required
-              onChange={(e) => setFormData({...formData, password: e.target.value})}
-              className="w-full rounded-2xl border border-gray-300 py-4 pl-12 pr-12 outline-none focus:border-[#8200DB]" 
             />
-            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">
-              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+            <span className="absolute left-3 top-3.5 text-slate-400">🔒</span>
+            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-3.5 text-slate-400">
+               {showPassword ? <EyeOff size={20}/> : <Eye size={20}/>}
             </button>
           </div>
 
           <div className="relative">
-            <Lock className="absolute left-4 top-1/2 size-5 -translate-y-1/2 text-gray-400" />
             <input 
               type="password" 
-              placeholder="Confirm password" 
+              placeholder="Confirm Password" 
+              className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-300 focus:border-indigo-500 outline-none"
+              value={confirmPassword}
+              onChange={e => setConfirmPassword(e.target.value)}
               required
-              onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
-              className="w-full rounded-2xl border border-gray-300 py-4 pl-12 pr-4 outline-none focus:border-[#8200DB]" 
             />
+            <span className="absolute left-3 top-3.5 text-slate-400">🔒</span>
           </div>
 
-          <div className="flex items-center gap-2 px-2 text-left">
-            <input 
-              type="checkbox" 
-              id="terms" 
-              required
-              onChange={(e) => setFormData({...formData, agree: e.target.checked})}
-              className="size-4 rounded border-gray-300 accent-[#8200DB]" 
-            />
-            <label htmlFor="terms" className="text-sm font-semibold text-black">
-              I agree to the <span className="text-[#8200DB]">Terms of Service</span>
-            </label>
+          <div className="flex items-center gap-2 mt-2">
+            <input type="checkbox" required className="rounded text-indigo-600 focus:ring-indigo-500"/>
+            <label className="text-sm text-slate-600">I agree to the <a href="#" className="text-purple-600 font-bold">Terms of Service</a></label>
           </div>
 
-          <button type="submit" className="w-full rounded-2xl bg-[#8200DB] py-4 text-lg font-bold text-white shadow-lg transition-all hover:bg-[#7100BD]">
-            Create account
+          <button 
+            type="submit" 
+            className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-purple-200 transition-all mt-4"
+          >
+            Sign up
           </button>
         </form>
+        
+        {/* Social Icons (เหมือนหน้า Login)
+        <div className="my-6 border-t border-slate-200 relative">
+            <span className="absolute left-1/2 -top-3 -translate-x-1/2 bg-white px-2 text-slate-400 text-sm">Or sign up with</span>
+        </div> */}
+       
+
       </div>
     </div>
   );
