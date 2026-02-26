@@ -1,4 +1,3 @@
-// /Users/tung/Desktop/CE Project/trading-bot-web-ui/src/components/Hero.tsx
 "use client";
 
 import { useEffect, useRef } from "react";
@@ -52,7 +51,7 @@ export default function Hero({ onOpenAuth }: HeroProps) {
 
       draw() {
         if (!ctx) return;
-        ctx.fillStyle = "#A545F2";
+        ctx.fillStyle = "#6A0DAD"; // เปลี่ยนเป็นม่วงเข้มขึ้นสำหรับพื้นหลังขาว
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
         ctx.fill();
@@ -79,7 +78,8 @@ export default function Hero({ onOpenAuth }: HeroProps) {
 
           if (distance < 150) {
             ctx.beginPath();
-            ctx.strokeStyle = `rgba(165, 69, 242, ${0.1 - distance / 1500})`;
+            // ปรับเส้นเชื่อมโยงให้เข้มขึ้นเล็กน้อย (0.15)
+            ctx.strokeStyle = `rgba(106, 13, 173, ${0.15 - distance / 1000})`;
             ctx.lineWidth = 1;
             ctx.moveTo(particles[i].x, particles[i].y);
             ctx.lineTo(particles[j].x, particles[j].y);
@@ -102,26 +102,29 @@ export default function Hero({ onOpenAuth }: HeroProps) {
   }, []);
 
   return (
-    <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 overflow-hidden">
+    <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 overflow-hidden bg-white">
       <canvas
         ref={canvasRef}
-        className="absolute top-0 left-0 z-0 pointer-events-none opacity-40"
+        className="absolute top-0 left-0 z-0 pointer-events-none opacity-20" // ลด opacity ลงเพื่อให้ดูคลีน
       />
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        <div className="inline-flex items-center px-4 py-2 rounded-full border border-brand-500/30 bg-brand-500/10 mb-8 animate-pulse-slow">
-          <span className="w-2 h-2 rounded-full bg-brand-500 mr-2 shadow-[0_0_10px_#A545F2]"></span>
-          <span className="text-brand-500 text-sm font-semibold tracking-wide uppercase">
+        {/* Badge */}
+        <div className="inline-flex items-center px-4 py-2 rounded-full border border-purple-200 bg-purple-50 mb-8 animate-pulse-slow">
+          <span className="w-2 h-2 rounded-full bg-[#6A0DAD] mr-2 shadow-[0_0_10px_rgba(106,13,173,0.5)]"></span>
+          <span className="text-[#6A0DAD] text-sm font-semibold tracking-wide uppercase">
             AI Algorithm V.4.0 อัปเดตล่าสุด
           </span>
         </div>
 
-        <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6 leading-tight">
+        {/* Heading - ใช้ Slate-900 เพื่อให้ตัดกับพื้นขาว */}
+        <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight mb-6 leading-tight text-slate-900">
           ให้ AI ทำกำไรแทนคุณ <br />
           ในตลาด <span className="gradient-text">SET50 & TFEX</span>
         </h1>
 
-        <p className="mt-4 text-xl text-gray-400 max-w-3xl mx-auto mb-10 font-light">
+        {/* Description - ใช้ Slate-500 */}
+        <p className="mt-4 text-xl text-slate-500 max-w-3xl mx-auto mb-10 font-medium">
           ระบบบอทเทรดอัจฉริยะ วิเคราะห์กราฟเทคนิค Real-time แม่นยำ รวดเร็ว
           และไร้อารมณ์ ช่วยให้คุณสร้าง Cash Flow ได้ตลอด 24 ชั่วโมง
           โดยไม่ต้องเฝ้าหน้าจอ
@@ -130,7 +133,7 @@ export default function Hero({ onOpenAuth }: HeroProps) {
         <div className="flex flex-col sm:flex-row justify-center gap-4">
           <button
             onClick={onOpenAuth}
-            className="group relative px-8 py-4 bg-brand-500 hover:bg-brand-600 text-white text-lg font-bold rounded-full shadow-xl shadow-brand-500/40 transition-all hover:-translate-y-1 overflow-hidden"
+            className="group relative px-8 py-4 bg-[#6A0DAD] hover:bg-[#5D0CA1] text-white text-lg font-bold rounded-2xl shadow-xl shadow-purple-200 transition-all hover:-translate-y-1 overflow-hidden"
           >
             <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-shimmer"></div>
             <span className="flex items-center gap-2">
@@ -139,29 +142,29 @@ export default function Hero({ onOpenAuth }: HeroProps) {
           </button>
           <a
             href="#how-it-works"
-            className="px-8 py-4 bg-transparent border border-gray-600 hover:border-gray-400 text-gray-300 hover:text-white text-lg font-medium rounded-full transition-all hover:bg-gray-800 flex items-center justify-center"
+            className="px-8 py-4 bg-white border border-slate-200 hover:border-slate-400 text-slate-600 hover:text-slate-900 text-lg font-bold rounded-2xl transition-all hover:bg-slate-50 flex items-center justify-center shadow-sm"
           >
             ดูวิธีการทำงาน
           </a>
         </div>
 
-        {/* Stats Grid */}
-        <div className="mt-16 grid grid-cols-2 gap-8 md:grid-cols-4 border-t border-gray-800 pt-8">
+        {/* Stats Grid - ปรับสีกรอบและตัวอักษร */}
+        <div className="mt-16 grid grid-cols-2 gap-8 md:grid-cols-4 border-t border-slate-100 pt-8">
           <div>
-            <div className="text-3xl font-bold text-white mb-1">฿2.5M+</div>
-            <div className="text-sm text-gray-500">กำไรหมุนเวียน/เดือน</div>
+            <div className="text-3xl font-black text-slate-900 mb-1">฿2.5M+</div>
+            <div className="text-sm font-bold text-slate-400 uppercase tracking-wider">กำไรหมุนเวียน/เดือน</div>
           </div>
           <div>
-            <div className="text-3xl font-bold text-brand-500 mb-1">98.5%</div>
-            <div className="text-sm text-gray-500">Uptime ระบบ</div>
+            <div className="text-3xl font-black text-[#6A0DAD] mb-1">98.5%</div>
+            <div className="text-sm font-bold text-slate-400 uppercase tracking-wider">Uptime ระบบ</div>
           </div>
           <div>
-            <div className="text-3xl font-bold text-white mb-1">1,200+</div>
-            <div className="text-sm text-gray-500">ผู้ใช้งาน Active</div>
+            <div className="text-3xl font-black text-slate-900 mb-1">1,200+</div>
+            <div className="text-sm font-bold text-slate-400 uppercase tracking-wider">ผู้ใช้งาน Active</div>
           </div>
           <div>
-            <div className="text-3xl font-bold text-brand-gold mb-1">Top 5</div>
-            <div className="text-sm text-gray-500">กลยุทธ์ทำกำไรสูงสุด</div>
+            <div className="text-3xl font-black text-amber-500 mb-1">Top 5</div>
+            <div className="text-sm font-bold text-slate-400 uppercase tracking-wider">กลยุทธ์ทำกำไรสูงสุด</div>
           </div>
         </div>
       </div>

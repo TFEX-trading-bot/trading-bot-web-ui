@@ -12,7 +12,7 @@ export default function Footer() {
                 <Bot className="text-white w-5 h-5" />
               </div>
               <span className="text-xl font-bold text-white">
-                TradingBotSystem
+                Trading Bot System
               </span>
             </div>
             <p className="text-gray-400 text-sm max-w-sm">
