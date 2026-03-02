@@ -5,7 +5,8 @@ import axios from 'axios';
 import { Eye, EyeOff, Facebook } from 'lucide-react'; 
 import { useRouter } from 'next/navigation'; // ✅ เพิ่มตัวนี้เข้ามา
 
-const API_URL = "http://localhost:3333";
+// Read API URL from environment (client-safe) with a sensible fallback for local dev
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://trading-bot-api-sigma.vercel.app";
 
 export default function LoginPage() {
   const router = useRouter(); // ✅ ประกาศตัวแปร router
