@@ -3,7 +3,8 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { Eye, EyeOff } from 'lucide-react';
 
-const API_URL = "http://localhost:3333";
+// Read API URL from environment (client-safe) with a sensible fallback
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://trading-bot-api-sigma.vercel.app";
 
 export default function RegisterPage() {
   const [name, setName] = useState("");
