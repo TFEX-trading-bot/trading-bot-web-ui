@@ -3,19 +3,108 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* เน้นโทน Pure White เพื่อให้ Card และ Content ดูลอยเด่น */
+  --foreground-rgb: 15, 23, 42;        /* Slate-900: ตัวอักษรเข้มชัดเจน */
+  --background-start-rgb: 255, 255, 255; /* ขาวบริสุทธิ์ */
+  --background-end-rgb: 250, 245, 255;   /* ปรับให้จบที่ม่วงจางมากๆ (Purple-50) */
+  
+  /* Brand Colors - ปรับโทนม่วงให้ดูแพงขึ้น */
+  --brand-purple: 106, 13, 173;        /* ม่วงหลัก */
+  --brand-purple-deep: 76, 29, 149;   /* ม่วงเข้มสำหรับจุดเคลื่อนไหว (Purple-900) */
+  --brand-purple-light: 243, 232, 255; /* ม่วงอ่อนสำหรับพื้นหลังการ์ด (Purple-100) */
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  color: rgb(var(--foreground-rgb));
+  /* ปรับพื้นหลังให้มีความนวลของสีม่วงจางๆ */
+  background: linear-gradient(
+    to bottom,
+    rgb(var(--background-start-rgb)),
+    rgb(var(--background-end-rgb))
+  );
+  font-family: var(--font-kanit), sans-serif;
+  scroll-behavior: smooth;
+  min-height: 100vh;
+  letter-spacing: -0.01em;
+}
+
+/* Glass Effect: เน้นความใสและสะท้อนสีม่วงบางๆ */
+.glass-effect {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(106, 13, 173, 0.05);
+  box-shadow: 0 10px 15px -3px rgba(106, 13, 173, 0.02);
+}
+
+/* ปรับ Text Gradient ให้มีความคมชัด */
+.gradient-text {
+  background: linear-gradient(135deg, #6a0dad 0%, #4c1d95 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 800;
+}
+
+/* จุดกะพริบเคลื่อนไหวสีม่วงเข้มตามสั่ง */
+.status-pulse {
+  position: relative;
+  display: flex;
+  height: 10px;
+  width: 10px;
+}
+
+.status-pulse .dot {
+  position: relative;
+  display: inline-flex;
+  border-radius: 9999px;
+  height: 10px;
+  width: 10px;
+  background-color: #4c1d95; /* ม่วงเข้มหลัก */
+}
+
+.status-pulse .ping {
+  animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+  position: absolute;
+  display: inline-flex;
+  height: 100%;
+  width: 100%;
+  border-radius: 9999px;
+  background-color: #6a0dad; /* ม่วงสว่างสำหรับวงแหวน */
+  opacity: 0.75;
+}
+
+@keyframes ping {
+  75%, 100% {
+    transform: scale(2.5);
+    opacity: 0;
+  }
+}
+
+/* แต่ง Card ให้ดูละมุนในโทนม่วง */
+.card-soft {
+  background: #ffffff;
+  border: 2px solid #f3e8ff; /* ขอบม่วงอ่อน */
+  box-shadow: 0 20px 25px -5px rgba(106, 13, 173, 0.05);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-soft:hover {
+  border-color: #a855f7;
+  transform: translateY(-8px);
+  box-shadow: 0 25px 50px -12px rgba(106, 13, 173, 0.15);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #e9d5ff; /* ม่วงอ่อนมาก */
+  border-radius: 20px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #c084fc;
 }
