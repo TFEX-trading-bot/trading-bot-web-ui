@@ -10,7 +10,7 @@ const AdminSidebar = () => {
   const isActive = (path: string) => pathname === path;
 
   const menuItems = [
-    { name: 'Client', path: '/client', icon: User },
+    { name: 'Client', path: '/clients', icon: User },
     { name: 'All Bots', path: '/all-bots', icon: Terminal },
     { name: 'Subscription', path: '/subscription', icon: CircleDollarSign },
   ];

@@ -5,8 +5,8 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { useRouter } from "next/navigation";
 
-// ตั้งค่า API URL ให้ตรงกับที่คุณทดสอบผ่าน Postman
-const API_URL = "http://localhost:3000"; 
+// ✅ ปรับ API URL ให้รองรับทั้ง Local และ Production (Vercel)
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://trading-bot-api-sigma.vercel.app";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -36,7 +36,7 @@ export default function AuthModal({ isOpen, onClose, mode, setMode }: AuthModalP
     return () => { document.body.style.overflow = "auto"; };
   }, [isOpen]);
 
-  // ✅ ฟังก์ชัน Login: ตรวจสอบสิทธิ์ผ่าน Role จาก Database
+  // ✅ ฟังก์ชัน Login ที่รองรับระบบ Admin และการ Redirect
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -44,21 +44,30 @@ export default function AuthModal({ isOpen, onClose, mode, setMode }: AuthModalP
     try {
       const res = await axios.post(`${API_URL}/auth/login`, { email, password });
       
-      // 1. บันทึกข้อมูลลง LocalStorage
+      // 1. เก็บ Token และ Username พื้นฐาน
       localStorage.setItem("token", res.data.access_token);
+      localStorage.setItem("username", res.data.username);
       
-      // ✨ จุดสำคัญ: บันทึก role ที่ดึงมาจาก DB จริงๆ
-      localStorage.setItem("role", res.data.role); 
+      // 2. ✅ เก็บ User ID จาก API จริง (เพื่อแก้ปัญหา ID ค้างเป็น 1)
+      const idToStore = res.data.user_id || "1"; 
+      localStorage.setItem("user_id", String(idToStore));
+
+      // 3. ✅ เก็บ Role และ Name เพื่อใช้ในหน้า Admin และ Header
+      // หมายเหตุ: Backend ของคุณต้องส่งฟิลด์ role และ name กลับมาด้วย
+      localStorage.setItem("role", res.data.role || "user");
+      localStorage.setItem("name", res.data.name || res.data.username || "User");
       
+      console.log("Login Success! Role:", res.data.role);
+
       onClose();
 
-      // 🚩 เปลี่ยนหน้าตาม Role (admin หรือ user)
-      if (res.data.role?.toLowerCase() === "admin") {
-        router.push("/clients"); // ไปหน้าจัดการลูกค้า
+      // 4. ✅ ระบบ Redirect ตามบทบาท (Admin ไปหน้าจัดการ / User ไปหน้าพอร์ต)
+      if (res.data.role === "admin") {
+        window.location.href = "/clients";
       } else {
-        router.push("/my-bot"); // ไปหน้าบอทส่วนตัว
+        window.location.href = "/my-bot";
       }
-      
+
     } catch (err: any) {
       // ตรวจสอบ Error จากรหัสผ่านผิด (401 Unauthorized)
       setError(err.response?.status === 401 ? "อีเมลหรือรหัสผ่านไม่ถูกต้อง" : "เกิดข้อผิดพลาด กรุณาลองใหม่");
@@ -97,52 +106,54 @@ export default function AuthModal({ isOpen, onClose, mode, setMode }: AuthModalP
           <X className="w-6 h-6" />
         </button>
 
-        <h2 className="text-2xl font-bold mb-2">{mode === "login" ? "ยินดีต้อนรับกลับ" : "สร้างบัญชีผู้ใช้"}</h2>
+        <h2 className="text-2xl font-bold mb-2 tracking-tight">
+          {mode === "login" ? "ยินดีต้อนรับกลับ" : "สร้างบัญชีผู้ใช้"}
+        </h2>
         <p className="text-gray-400 mb-6 text-sm">
           {mode === "login" ? "เข้าสู่ระบบเพื่อจัดการพอร์ตของคุณ" : "เริ่มต้นใช้บอทเทรดฟรีวันนี้"}
         </p>
 
-        {error && <div className="bg-red-500/10 border border-red-500 text-red-500 text-xs p-3 rounded-lg mb-4 text-center">{error}</div>}
+        {error && <div className="bg-red-500/10 border border-red-500 text-red-500 text-xs p-3 rounded-lg mb-4 text-center font-bold animate-pulse">{error}</div>}
 
         <form className="space-y-4" onSubmit={mode === "login" ? handleLogin : handleRegister}>
           {mode === "register" && (
             <div>
-              <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">ชื่อ-นามสกุล</label>
+              <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-1.5">ชื่อ-นามสกุล</label>
               <input
                 type="text" required value={name} onChange={(e) => setName(e.target.value)}
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none"
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2.5 outline-none focus:ring-2 focus:ring-purple-500 transition-all"
                 placeholder="ชื่อของคุณ"
               />
             </div>
           )}
 
           <div>
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">อีเมล</label>
+            <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-1.5">อีเมล</label>
             <input
               type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2.5 outline-none focus:ring-2 focus:ring-purple-500 transition-all"
               placeholder="name@example.com"
             />
           </div>
 
           <div className="relative">
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">รหัสผ่าน</label>
+            <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-1.5">รหัสผ่าน</label>
             <input
               type={showPassword ? "text" : "password"} required value={password} onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2.5 outline-none focus:ring-2 focus:ring-purple-500 transition-all"
               placeholder="••••••••"
             />
-            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-9 text-gray-500 hover:text-white">
+            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-10 text-gray-500 hover:text-white transition-colors">
               {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           </div>
 
           {mode === "register" && (
             <div>
-              <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">ยืนยันรหัสผ่าน</label>
+              <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-1.5">ยืนยันรหัสผ่าน</label>
               <input
                 type="password" required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2.5 outline-none focus:ring-2 focus:ring-purple-500 transition-all"
                 placeholder="••••••••"
               />
             </div>
@@ -150,7 +161,7 @@ export default function AuthModal({ isOpen, onClose, mode, setMode }: AuthModalP
 
           <button
             type="submit" disabled={loading}
-            className={`w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-lg transition-all shadow-lg active:scale-95 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`w-full bg-purple-600 hover:bg-purple-700 text-white font-black py-3 rounded-lg shadow-lg transition-all active:scale-95 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             {loading ? "กำลังดำเนินการ..." : mode === "login" ? "เข้าสู่ระบบ" : "สมัครสมาชิก"}
           </button>
@@ -158,9 +169,9 @@ export default function AuthModal({ isOpen, onClose, mode, setMode }: AuthModalP
 
         <div className="mt-6 text-center text-sm text-gray-400 font-medium">
           {mode === "login" ? (
-            <>ยังไม่มีบัญชี? <button onClick={() => setMode("register")} className="text-purple-500 font-bold hover:underline">สมัครสมาชิก</button></>
+            <>ยังไม่มีบัญชี? <button onClick={() => setMode("register")} className="text-purple-500 font-bold hover:text-purple-400 transition-colors">สมัครสมาชิก</button></>
           ) : (
-            <>มีบัญชีอยู่แล้ว? <button onClick={() => setMode("login")} className="text-purple-500 font-bold hover:underline">เข้าสู่ระบบ</button></>
+            <>มีบัญชีอยู่แล้ว? <button onClick={() => setMode("login")} className="text-purple-500 font-bold hover:text-purple-400 transition-colors">เข้าสู่ระบบ</button></>
           )}
         </div>
       </div>
