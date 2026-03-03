@@ -1,51 +1,65 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import BotDisplayCard from '@/components/BotDisplayCard';
-import AddBotCard from '@/components/AddBotCard';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import axios from 'axios';
 import Sidebar from "@/components/Sidebar"; 
 import DashboardHeader from "@/components/Header";
-import { Loader2 } from "lucide-react";
-import axios from 'axios';
+import BotDisplayCard from '@/components/BotDisplayCard';
+import AddBotCard from '@/components/AddBotCard';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://trading-bot-api-sigma.vercel.app";
+const API_URL = "https://trading-bot-api-sigma.vercel.app";
 
 export default function MyBotPage() {
-  const [bots, setBots] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  // ✅ 1. ตั้งค่าเริ่มต้นให้เป็น null แทน [] เพื่อเช็คว่า "ยังไม่ได้ดึง" หรือ "ดึงมาแล้วแต่ไม่มีข้อมูล"
+  const [bots, setBots] = useState<any[] | null>(null);
+
+  const fetchBots = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    const userId = localStorage.getItem("user_id") || "1"; 
+
+    try {
+      const res = await axios.get(`${API_URL}/bots/user/${userId}`, {
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Cache-Control': 'no-cache'
+        }
+      });
+      setBots(Array.isArray(res.data) ? res.data : []);
+    } catch (err: any) {
+      console.error("Fetch error:", err.message);
+      setBots([]); // กัน Error แล้วค้าง
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchBots = async () => {
-      const token = localStorage.getItem("token");
-      // เช็คให้ชัวร์ว่า key ใน localStorage ตรงกับตอน Login (ซึ่งปกติคุณใช้ user_id)
-      const userId = localStorage.getItem("user_id");
-      
-      // ตรวจสอบความถูกต้องของข้อมูลก่อนยิง API
-      if (!userId || userId === "undefined" || !token) {
-        console.warn("Auth data missing, stopping fetch");
-        setLoading(false);
-        return;
-      }
-
-      try {
-        // ลองตรวจสอบที่ Backend ว่าใช้ /api/bots หรือแค่ /bots
-        const res = await axios.get(`${API_URL}/api/bots/user/${userId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        setBots(Array.isArray(res.data) ? res.data : []);
-      } catch (err: any) {
-        console.error("Fetch error details:", err.response?.status, err.message);
-        // ถ้ายัง 404 ให้ลองเอา /api ออกในใจแล้วลองเทสดูครับ
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchBots();
-  }, []);
+  }, [fetchBots]);
+
+  const renderedBots = useMemo(() => {
+    // ✅ 2. ถ้า bots ยังเป็น null (กำลังโหลดครั้งแรก) ให้แสดงแค่โครงร่างหรือว่างไว้ก่อนแบบเงียบๆ
+    if (!bots) return null;
+
+    return bots.map((bot) => {
+      let cardVariant: "green" | "red" | "gray" = "gray";
+      const pnl = Number(bot.totalPnL || 0);
+
+      if (pnl > 0) cardVariant = "green";
+      else if (pnl < 0) cardVariant = "red";
+
+      return (
+        <BotDisplayCard
+          key={bot.id}
+          name={bot.stock || "Unknown"} 
+          price={pnl} 
+          change={bot.change || "+0.00"} 
+          changePct={bot.changePct || "0.00%"}
+          currency="THB"
+          variant={cardVariant} 
+          botKind={bot.botType?.toLowerCase() === 'ai' ? 'ai' : 'manual'}
+        />
+      );
+    });
+  }, [bots]);
 
   return (
     <div className="flex min-h-screen bg-slate-50 font-sans text-slate-800">
@@ -55,29 +69,13 @@ export default function MyBotPage() {
 
       <main className="flex flex-col flex-1 bg-white">
         <DashboardHeader title="My Bot" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6 p-8">
-          {loading ? (
-            <div className="col-span-full flex flex-col items-center justify-center py-20 gap-4">
-              <Loader2 className="animate-spin text-[#6A0DAD] w-12 h-12" />
-              <p className="text-slate-400 font-medium italic">กำลังดึงข้อมูลบอทจากระบบ...</p>
-            </div>
-          ) : (
-            <>
-              {bots.map((bot) => (
-                <BotDisplayCard
-                  key={bot.id}
-                  name={bot.stock || "Unknown Bot"} 
-                  price={bot.current_price || 0} 
-                  change={bot.change_value || "0.00"}
-                  changePct={bot.change_pct || "0.00%"}
-                  currency="THB"
-                  variant={bot.status === 'RUNNING' ? 'green' : 'gray'}
-                  botKind={bot.bot_type?.toLowerCase() === 'ai' ? 'ai' : 'manual'}
-                />
-              ))}
-              <AddBotCard />
-            </>
-          )}
+
+        <div className="p-8">
+          {/* ✅ 3. Grid จะขยายตัวตามจำนวนบอทที่มีจริง ทำให้จังหวะ Render ดูสมูทขึ้น */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6 transition-opacity duration-300">
+            {renderedBots}
+            <AddBotCard />
+          </div>
         </div>
       </main>
     </div>
