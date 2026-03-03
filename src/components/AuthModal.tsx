@@ -131,26 +131,17 @@ export default function AuthModal({
                 onClose();
               }}
             >
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
-                    ชื่อ
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-brand-500 focus:outline-none focus:border-brand-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
-                    นามสกุล
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-brand-500 focus:outline-none focus:border-brand-500"
-                  />
-                </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  ชื่อ
+                </label>
+                <input
+                  type="text"
+                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-brand-500 focus:outline-none focus:border-brand-500"
+                />
               </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">
                   อีเมล
@@ -160,15 +151,7 @@ export default function AuthModal({
                   className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-brand-500 focus:outline-none focus:border-brand-500"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  เบอร์โทรศัพท์
-                </label>
-                <input
-                  type="tel"
-                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-brand-500 focus:outline-none focus:border-brand-500"
-                />
-              </div>
+              
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">
                   รหัสผ่าน
