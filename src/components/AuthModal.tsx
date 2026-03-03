@@ -5,8 +5,8 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { useRouter } from "next/navigation";
 
-// ดึง API URL จาก Env
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://trading-bot-api-sigma.vercel.app";
+// ตั้งค่า API URL ให้ตรงกับที่คุณทดสอบผ่าน Postman
+const API_URL = "http://localhost:3000"; 
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -18,7 +18,6 @@ interface AuthModalProps {
 export default function AuthModal({ isOpen, onClose, mode, setMode }: AuthModalProps) {
   const router = useRouter();
   
-  // States สำหรับ Form
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
@@ -27,38 +26,47 @@ export default function AuthModal({ isOpen, onClose, mode, setMode }: AuthModalP
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // ป้องกันการ Scroll เมื่อ Modal เปิด
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
-      setError(""); // Reset error เมื่อเปิด modal ใหม่
+      setError(""); 
     } else {
       document.body.style.overflow = "auto";
     }
     return () => { document.body.style.overflow = "auto"; };
   }, [isOpen]);
 
-  // ฟังก์ชัน Login
+  // ✅ ฟังก์ชัน Login ที่แก้ไขการดึง user_id
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
     try {
       const res = await axios.post(`${API_URL}/auth/login`, { email, password });
-      localStorage.setItem("token", res.data.access_token);
-      localStorage.setItem("username", res.data.username);
-      localStorage.setItem("user_id", res.data.user_id);
       
+      // 1. เก็บ Token
+      localStorage.setItem("token", res.data.access_token);
+      
+      // 2. เก็บ Username
+      localStorage.setItem("username", res.data.username || "ping");
+
+      // 3. ✅ จุดสำคัญ: ดึง User ID ให้ถูกต้อง (เช็คตามโครงสร้าง JSON ของคุณ)
+      // ปกติจะอยู่ใน res.data.user_id หรือ res.data.user.id
+      const idToStore = res.data.user_id || res.data.user?.id || "1"; 
+      localStorage.setItem("user_id", String(idToStore));
+      
+      console.log("Login Success! User ID stored:", idToStore);
+
       onClose();
-      router.push("/my-bot"); // หรือหน้า dashboard ที่ต้องการ
+      // รีเฟรชหน้าเพื่อให้ MyBotPage ดึงค่าใหม่จาก LocalStorage
+      window.location.href = "/my-bot"; 
     } catch (err: any) {
-      setError(err.response?.status === 400 ? "อีเมลหรือรหัสผ่านไม่ถูกต้อง" : "เกิดข้อผิดพลาด กรุณาลองใหม่");
+      setError(err.response?.status === 401 ? "อีเมลหรือรหัสผ่านไม่ถูกต้อง" : "เกิดข้อผิดพลาด กรุณาลองใหม่");
     } finally {
       setLoading(false);
     }
   };
 
-  // ฟังก์ชัน Register
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -70,7 +78,7 @@ export default function AuthModal({ isOpen, onClose, mode, setMode }: AuthModalP
     try {
       await axios.post(`${API_URL}/auth/register`, { name, email, password });
       alert("สร้างบัญชีสำเร็จ! กรุณาเข้าสู่ระบบ");
-      setMode("login"); // สลับไปหน้า login
+      setMode("login");
     } catch (err: any) {
       setError("การลงทะเบียนล้มเหลว อีเมลนี้อาจถูกใช้ไปแล้ว");
     } finally {
@@ -81,10 +89,10 @@ export default function AuthModal({ isOpen, onClose, mode, setMode }: AuthModalP
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100]">
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose}></div>
 
-      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-[#1a1a1a] border border-gray-800 rounded-2xl shadow-2xl p-8 text-white">
+      <div className="relative w-full max-w-md bg-[#1a1a1a] border border-gray-800 rounded-2xl shadow-2xl p-8 text-white">
         <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors">
           <X className="w-6 h-6" />
         </button>
@@ -102,8 +110,8 @@ export default function AuthModal({ isOpen, onClose, mode, setMode }: AuthModalP
               <label className="block text-sm font-medium text-gray-300 mb-1">ชื่อ-นามสกุล</label>
               <input
                 type="text" required value={name} onChange={(e) => setName(e.target.value)}
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none"
-                placeholder="ชื่อ-นามสกุลของคุณ"
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-purple-500"
+                placeholder="ชื่อของคุณ"
               />
             </div>
           )}
@@ -112,7 +120,7 @@ export default function AuthModal({ isOpen, onClose, mode, setMode }: AuthModalP
             <label className="block text-sm font-medium text-gray-300 mb-1">อีเมล</label>
             <input
               type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none"
+              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-purple-500"
               placeholder="name@example.com"
             />
           </div>
@@ -121,7 +129,7 @@ export default function AuthModal({ isOpen, onClose, mode, setMode }: AuthModalP
             <label className="block text-sm font-medium text-gray-300 mb-1">รหัสผ่าน</label>
             <input
               type={showPassword ? "text" : "password"} required value={password} onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none"
+              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-purple-500"
               placeholder="••••••••"
             />
             <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-9 text-gray-500 hover:text-white">
@@ -134,7 +142,7 @@ export default function AuthModal({ isOpen, onClose, mode, setMode }: AuthModalP
               <label className="block text-sm font-medium text-gray-300 mb-1">ยืนยันรหัสผ่าน</label>
               <input
                 type="password" required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none"
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-purple-500"
                 placeholder="••••••••"
               />
             </div>
@@ -142,7 +150,7 @@ export default function AuthModal({ isOpen, onClose, mode, setMode }: AuthModalP
 
           <button
             type="submit" disabled={loading}
-            className={`w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-lg transition-all shadow-lg ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-lg shadow-lg transition-all ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             {loading ? "กำลังดำเนินการ..." : mode === "login" ? "เข้าสู่ระบบ" : "สมัครสมาชิก"}
           </button>
