@@ -69,6 +69,7 @@ export default function AuthModal({ isOpen, onClose, mode, setMode }: AuthModalP
       }
 
     } catch (err: any) {
+      // ตรวจสอบ Error จากรหัสผ่านผิด (401 Unauthorized)
       setError(err.response?.status === 401 ? "อีเมลหรือรหัสผ่านไม่ถูกต้อง" : "เกิดข้อผิดพลาด กรุณาลองใหม่");
     } finally {
       setLoading(false);
@@ -86,7 +87,7 @@ export default function AuthModal({ isOpen, onClose, mode, setMode }: AuthModalP
     try {
       await axios.post(`${API_URL}/auth/register`, { name, email, password });
       alert("สร้างบัญชีสำเร็จ! กรุณาเข้าสู่ระบบ");
-      setMode("login");
+      setMode("login"); 
     } catch (err: any) {
       setError("การลงทะเบียนล้มเหลว อีเมลนี้อาจถูกใช้ไปแล้ว");
     } finally {
