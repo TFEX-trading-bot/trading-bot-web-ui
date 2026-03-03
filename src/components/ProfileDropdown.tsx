@@ -1,75 +1,91 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { UserCircle, Settings, LogOut, ChevronDown } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { UserCircle, Settings, LogOut, ChevronDown } from "lucide-react";
 
 export default function ProfileDropdown() {
   const [isOpen, setIsOpen] = useState(false);
-  const [role, setRole] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string>("User");
+  const [userRole, setUserRole] = useState<string | null>(null); // ✅ เพิ่ม state เก็บ role
   const router = useRouter();
 
   useEffect(() => {
-    // ดึง Role มาเช็กเพื่อเลือกแสดงเมนู
+    const storedName = localStorage.getItem("name");
+    const storedUsername = localStorage.getItem("username");
+    const storedRole = localStorage.getItem("role"); // ✅ ดึงสิทธิ์จาก storage
     const savedUser = localStorage.getItem("user");
-    if (savedUser) {
-      const user = JSON.parse(savedUser);
-      setRole(user.role);
+
+    setUserRole(storedRole); // บันทึก role ลง state
+
+    if (storedName) {
+      setUserName(storedName);
+    } else if (storedUsername) {
+      setUserName(storedUsername);
+    } else if (savedUser && savedUser !== "undefined" && savedUser !== "null") {
+      try {
+        const user = JSON.parse(savedUser);
+        setUserName(user.name || user.username || "User");
+      } catch (error) {
+        console.error("ProfileDropdown: Parse error", error);
+      }
     }
   }, []);
 
-  const handleLogout = async () => {
-    try {
-      // เรียก API และล้างข้อมูลเพื่อออกจากระบบ
-      await fetch("http://localhost:3001/api/auth/sign-out", { method: "POST" });
-      localStorage.removeItem("user");
-      router.push("/login");
-    } catch (error) {
-      console.error("Logout failed:", error);
-    }
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("username");
+    localStorage.removeItem("name");
+    localStorage.removeItem("role"); // ✅ ล้าง role
+    localStorage.removeItem("user_id");
+    localStorage.removeItem("user_email");
+    localStorage.removeItem("user");
+    
+    setIsOpen(false);
+    window.location.href = "/"; 
   };
 
   return (
-    <div className="relative inline-block text-left">
-      {/* ส่วนของปุ่มโปรไฟล์สีม่วง */}
+    <div className="relative inline-block text-left text-black">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-3 rounded-full bg-[#8200DB] px-6 py-2.5 text-white shadow-lg transition-all hover:bg-[#7100BD]"
+        className="flex items-center gap-3 rounded-full bg-[#6A0DAD] px-6 py-2.5 text-white shadow-xl shadow-purple-200 transition-all hover:bg-[#5D0CA1] hover:scale-105 active:scale-95"
       >
         <div className="flex size-8 items-center justify-center rounded-full bg-white/20">
-          <UserCircle size={22} />
+          <UserCircle size={22} strokeWidth={2.5} />
         </div>
-        <span className="font-semibold">
-          {role === 'admin' ? 'Admin User' : 'Cornellia Hubbert'}
+        <span className="font-black text-sm tracking-tight truncate max-w-[100px]">
+          {userName}
         </span>
-        <ChevronDown size={18} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown size={18} className={`transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`} />
       </button>
 
-      {/* Popup Menu */}
       {isOpen && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)}></div>
           
-          <div className="absolute right-0 mt-3 z-20 w-56 origin-top-right rounded-2xl bg-white p-2 shadow-2xl ring-1 ring-black/5">
-            
-            {/* แสดง Manage Account เฉพาะ User ทั่วไป (Client) */}
-            {role !== 'admin' && (
-              <>
-                <button
-                  onClick={() => { router.push('/profile'); setIsOpen(false); }}
-                  className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm text-gray-700 transition-colors hover:bg-gray-100"
-                >
-                  <Settings size={18} className="text-gray-400" />
-                  Manage Account
-                </button>
-                <div className="my-1 border-t border-gray-100"></div>
-              </>
+          <div className="absolute right-0 mt-3 z-20 w-60 origin-top-right rounded-[2rem] bg-white p-3 shadow-[0_20px_50px_rgba(106,13,173,0.15)] border border-purple-50 animate-in fade-in zoom-in duration-200">
+            <div className="px-5 py-3 mb-2">
+               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Signed in as</p>
+               <p className="text-sm font-bold text-[#6A0DAD] truncate">{userName}</p>
+            </div>
+
+            {/* ✅ เงื่อนไข: ถ้าไม่ใช่ admin ถึงจะแสดงเมนู Manage Account */}
+            {userRole?.toLowerCase() !== "admin" && (
+              <button
+                onClick={() => { router.push("/manage-account"); setIsOpen(false); }}
+                className="flex w-full items-center gap-3 rounded-2xl px-5 py-4 text-sm font-bold text-slate-600 transition-colors hover:bg-purple-50 hover:text-[#6A0DAD]"
+              >
+                <Settings size={18} />
+                Manage Account
+              </button>
             )}
+
+            {userRole?.toLowerCase() !== "admin" && <div className="my-2 border-t border-slate-50"></div>}
             
-            {/* ปุ่ม Logout ที่มีทั้ง Admin และ Client */}
             <button
               onClick={handleLogout}
-              className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm text-red-600 transition-colors hover:bg-red-50"
+              className="flex w-full items-center gap-3 rounded-2xl px-5 py-4 text-sm font-bold text-rose-500 transition-colors hover:bg-rose-50"
             >
               <LogOut size={18} />
               Logout
