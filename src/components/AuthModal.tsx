@@ -1,8 +1,12 @@
-// /Users/tung/Desktop/CE Project/trading-bot-web-ui/src/components/AuthModal.tsx
 "use client";
 
-import { X } from "lucide-react";
-import { useEffect } from "react";
+import { X, Eye, EyeOff } from "lucide-react";
+import { useEffect, useState } from "react";
+import axios from "axios";
+import { useRouter } from "next/navigation";
+
+// ดึง API URL จาก Env
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://trading-bot-api-sigma.vercel.app";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -11,175 +15,146 @@ interface AuthModalProps {
   setMode: (mode: "login" | "register") => void;
 }
 
-export default function AuthModal({
-  isOpen,
-  onClose,
-  mode,
-  setMode,
-}: AuthModalProps) {
+export default function AuthModal({ isOpen, onClose, mode, setMode }: AuthModalProps) {
+  const router = useRouter();
+  
+  // States สำหรับ Form
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  // ป้องกันการ Scroll เมื่อ Modal เปิด
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
+      setError(""); // Reset error เมื่อเปิด modal ใหม่
     } else {
       document.body.style.overflow = "auto";
     }
-    return () => {
-      document.body.style.overflow = "auto";
-    };
+    return () => { document.body.style.overflow = "auto"; };
   }, [isOpen]);
+
+  // ฟังก์ชัน Login
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      const res = await axios.post(`${API_URL}/auth/login`, { email, password });
+      localStorage.setItem("token", res.data.access_token);
+      localStorage.setItem("username", res.data.username);
+      localStorage.setItem("user_id", res.data.user_id);
+      
+      onClose();
+      router.push("/my-bot"); // หรือหน้า dashboard ที่ต้องการ
+    } catch (err: any) {
+      setError(err.response?.status === 400 ? "อีเมลหรือรหัสผ่านไม่ถูกต้อง" : "เกิดข้อผิดพลาด กรุณาลองใหม่");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ฟังก์ชัน Register
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    if (password !== confirmPassword) {
+      setError("รหัสผ่านไม่ตรงกัน");
+      return;
+    }
+    setLoading(true);
+    try {
+      await axios.post(`${API_URL}/auth/register`, { name, email, password });
+      alert("สร้างบัญชีสำเร็จ! กรุณาเข้าสู่ระบบ");
+      setMode("login"); // สลับไปหน้า login
+    } catch (err: any) {
+      setError("การลงทะเบียนล้มเหลว อีเมลนี้อาจถูกใช้ไปแล้ว");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-[100]">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity"
-        onClick={onClose}
-      ></div>
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
 
-      {/* Modal Content */}
-      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-brand-card border border-brand-500/20 rounded-2xl shadow-2xl shadow-brand-500/10 p-8">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
-        >
+      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-[#1a1a1a] border border-gray-800 rounded-2xl shadow-2xl p-8 text-white">
+        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors">
           <X className="w-6 h-6" />
         </button>
 
-        {mode === "login" ? (
-          <div id="login-form">
-            <h2 className="text-2xl font-bold text-white mb-2">
-              ยินดีต้อนรับกลับ
-            </h2>
-            <p className="text-gray-400 mb-6 text-sm">
-              เข้าสู่ระบบเพื่อจัดการพอร์ตการลงทุนของคุณ
-            </p>
+        <h2 className="text-2xl font-bold mb-2">{mode === "login" ? "ยินดีต้อนรับกลับ" : "สร้างบัญชีผู้ใช้"}</h2>
+        <p className="text-gray-400 mb-6 text-sm">
+          {mode === "login" ? "เข้าสู่ระบบเพื่อจัดการพอร์ตของคุณ" : "เริ่มต้นใช้บอทเทรดฟรีวันนี้"}
+        </p>
 
-            <form
-              className="space-y-4"
-              onSubmit={(e) => {
-                e.preventDefault();
-                alert("ระบบกำลังเข้าสู่ระบบจำลอง...");
-                onClose();
-              }}
-            >
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  อีเมล
-                </label>
-                <input
-                  type="email"
-                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-brand-500 focus:outline-none focus:border-brand-500 transition-colors"
-                  placeholder="name@example.com"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  รหัสผ่าน
-                </label>
-                <input
-                  type="password"
-                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-brand-500 focus:outline-none focus:border-brand-500 transition-colors"
-                  placeholder="••••••••"
-                />
-              </div>
-              <div className="flex justify-between items-center text-xs">
-                <label className="flex items-center text-gray-400">
-                  <input
-                    type="checkbox"
-                    className="mr-2 rounded border-gray-700 bg-gray-900 text-brand-500 focus:ring-brand-500"
-                  />{" "}
-                  จำฉันไว้ในระบบ
-                </label>
-                <a href="#" className="text-brand-500 hover:text-brand-400">
-                  ลืมรหัสผ่าน?
-                </a>
-              </div>
-              <button
-                type="submit"
-                className="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-2.5 rounded-lg transition-colors shadow-lg shadow-brand-500/30"
-              >
-                เข้าสู่ระบบ
-              </button>
-            </form>
+        {error && <div className="bg-red-500/10 border border-red-500 text-red-500 text-xs p-3 rounded-lg mb-4 text-center">{error}</div>}
 
-            <div className="mt-6 text-center text-sm text-gray-400">
-              ยังไม่มีบัญชี?{" "}
-              <button
-                onClick={() => setMode("register")}
-                className="text-brand-500 font-bold hover:underline"
-              >
-                สมัครสมาชิก
-              </button>
+        <form className="space-y-4" onSubmit={mode === "login" ? handleLogin : handleRegister}>
+          {mode === "register" && (
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">ชื่อ-นามสกุล</label>
+              <input
+                type="text" required value={name} onChange={(e) => setName(e.target.value)}
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none"
+                placeholder="ชื่อ-นามสกุลของคุณ"
+              />
             </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">อีเมล</label>
+            <input
+              type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
+              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none"
+              placeholder="name@example.com"
+            />
           </div>
-        ) : (
-          <div id="register-form">
-            <h2 className="text-2xl font-bold text-white mb-2">
-              สร้างบัญชีผู้ใช้
-            </h2>
-            <p className="text-gray-400 mb-6 text-sm">
-              เริ่มต้นใช้บอทเทรดฟรีวันนี้
-            </p>
 
-            <form
-              className="space-y-4"
-              onSubmit={(e) => {
-                e.preventDefault();
-                alert("ขอบคุณที่สมัครสมาชิก! เจ้าหน้าที่จะติดต่อกลับ");
-                onClose();
-              }}
-            >
+          <div className="relative">
+            <label className="block text-sm font-medium text-gray-300 mb-1">รหัสผ่าน</label>
+            <input
+              type={showPassword ? "text" : "password"} required value={password} onChange={(e) => setPassword(e.target.value)}
+              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none"
+              placeholder="••••••••"
+            />
+            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-9 text-gray-500 hover:text-white">
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  ชื่อ
-                </label>
-                <input
-                  type="text"
-                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-brand-500 focus:outline-none focus:border-brand-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  อีเมล
-                </label>
-                <input
-                  type="email"
-                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-brand-500 focus:outline-none focus:border-brand-500"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  รหัสผ่าน
-                </label>
-                <input
-                  type="password"
-                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-brand-500 focus:outline-none focus:border-brand-500"
-                />
-              </div>
-              <button
-                type="submit"
-                className="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-2.5 rounded-lg transition-colors shadow-lg shadow-brand-500/30"
-              >
-                สมัครสมาชิก
-              </button>
-            </form>
-
-            <div className="mt-6 text-center text-sm text-gray-400">
-              มีบัญชีอยู่แล้ว?{" "}
-              <button
-                onClick={() => setMode("login")}
-                className="text-brand-500 font-bold hover:underline"
-              >
-                เข้าสู่ระบบ
-              </button>
+          {mode === "register" && (
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">ยืนยันรหัสผ่าน</label>
+              <input
+                type="password" required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 outline-none"
+                placeholder="••••••••"
+              />
             </div>
-          </div>
-        )}
+          )}
+
+          <button
+            type="submit" disabled={loading}
+            className={`w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-lg transition-all shadow-lg ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            {loading ? "กำลังดำเนินการ..." : mode === "login" ? "เข้าสู่ระบบ" : "สมัครสมาชิก"}
+          </button>
+        </form>
+
+        <div className="mt-6 text-center text-sm text-gray-400">
+          {mode === "login" ? (
+            <>ยังไม่มีบัญชี? <button onClick={() => setMode("register")} className="text-purple-500 font-bold hover:underline">สมัครสมาชิก</button></>
+          ) : (
+            <>มีบัญชีอยู่แล้ว? <button onClick={() => setMode("login")} className="text-purple-500 font-bold hover:underline">เข้าสู่ระบบ</button></>
+          )}
+        </div>
       </div>
     </div>
   );
