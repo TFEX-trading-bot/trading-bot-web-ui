@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react"; 
 import Sidebar from "@/components/Sidebar"; 
 import DashboardHeader from "@/components/Header";
 import BotDisplayCard from '@/components/BotDisplayCard';
@@ -13,12 +14,13 @@ const API_URL = "https://trading-bot-api-sigma.vercel.app";
 export default function MyBotPage() {
   const router = useRouter();
   const [bots, setBots] = useState<any[] | null>(null);
+  const [navigatingId, setNavigatingId] = useState<number | null>(null);
 
+  // ✅ 1. ฟังก์ชันดึงข้อมูลและเรียงลำดับตาม ID
   const fetchBots = useCallback(async () => {
     const token = localStorage.getItem("token");
     const userId = localStorage.getItem("user_id"); 
 
-    // ✅ ปรับ Redirect ให้กลับไปหน้าหลักหากไม่มี Session
     if (!userId || userId === "undefined" || !token) {
       console.warn("Session expired or User ID not found.");
       router.push("/"); 
@@ -33,10 +35,13 @@ export default function MyBotPage() {
         }
       });
       
-      setBots(Array.isArray(res.data) ? res.data : []);
+      // ✅ ตรวจสอบข้อมูลและสั่งเรียงลำดับ ID จากน้อยไปมาก
+      const rawData = Array.isArray(res.data) ? res.data : [];
+      const sortedBots = rawData.sort((a: any, b: any) => a.id - b.id);
+      
+      setBots(sortedBots);
     } catch (err: any) {
       console.error("Fetch error:", err.message);
-      // หาก Token หมดอายุ (401) ให้กลับไป Login ใหม่
       if (err.response?.status === 401) router.push("/");
       setBots([]); 
     }
@@ -45,6 +50,12 @@ export default function MyBotPage() {
   useEffect(() => {
     fetchBots();
   }, [fetchBots]);
+
+  // ✅ 2. ฟังก์ชันจัดการการคลิกนำทาง
+  const handleCardClick = (id: number) => {
+    setNavigatingId(id); 
+    router.push(`/bot-dashboard/${id}`);
+  };
 
   const renderedBots = useMemo(() => {
     if (!bots) return null;
@@ -57,19 +68,34 @@ export default function MyBotPage() {
       else if (pnl < 0) cardVariant = "red";
 
       return (
-        <BotDisplayCard
-          key={bot.id}
-          name={bot.stock || "Unknown"} 
-          price={pnl} 
-          change={bot.change || "+0.00"} 
-          changePct={bot.changePct || "0.00%"}
-          currency="THB"
-          variant={cardVariant} 
-          botKind={bot.botType?.toLowerCase() === 'ai' ? 'ai' : 'manual'}
-        />
+        <div 
+          key={bot.id} 
+          onClick={() => handleCardClick(bot.id)}
+          // ✅ โหลดหน้าถัดไปล่วงหน้าเมื่อเมาส์วาง ช่วยให้เปลี่ยนหน้าเร็วขึ้น
+          onMouseEnter={() => router.prefetch(`/bot-dashboard/${bot.id}`)}
+          className="group relative cursor-pointer active:scale-95 hover:scale-[1.02] transition-all duration-200"
+        >
+          {/* ✅ Loading Overlay แสดงสถานะขณะกำลังเปลี่ยนหน้า */}
+          {navigatingId === bot.id && (
+            <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/60 backdrop-blur-[2px] rounded-[2rem]">
+              <Loader2 className="animate-spin text-[#8200DB]" size={32} />
+              <p className="text-[10px] font-black text-[#8200DB] mt-2 uppercase tracking-tighter">Entering...</p>
+            </div>
+          )}
+
+          <BotDisplayCard
+            name={bot.stock || "Unknown"} 
+            price={pnl} 
+            change={bot.change || "+0.00"} 
+            changePct={bot.changePct || "0.00%"}
+            currency="THB"
+            variant={cardVariant} 
+            botKind={bot.botType?.toLowerCase() === 'ai' ? 'ai' : 'manual'}
+          />
+        </div>
       );
     });
-  }, [bots]);
+  }, [bots, router, navigatingId]);
 
   return (
     <div className="flex min-h-screen bg-slate-50 font-sans text-slate-800">
@@ -81,6 +107,7 @@ export default function MyBotPage() {
         <DashboardHeader title="My Bot" />
 
         <div className="p-8">
+          {/* ✅ แสดงบอทที่เรียง ID แล้วในรูปแบบ Grid 3-4 คอลัมน์ */}
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6 transition-opacity duration-300">
             {renderedBots}
             <AddBotCard />
