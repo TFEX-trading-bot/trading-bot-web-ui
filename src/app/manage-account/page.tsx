@@ -14,8 +14,6 @@ export default function ProfilePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
-  
-  // ✅ 1. เพิ่ม State สำหรับชื่อที่จะใช้แสดงผล (จะเปลี่ยนเฉพาะตอนกด Save สำเร็จ)
   const [confirmedName, setConfirmedName] = useState("");
 
   const [formData, setFormData] = useState({
@@ -24,9 +22,25 @@ export default function ProfilePage() {
     email: "",
     username: "",
     accountNumber: "", 
+    // ✅ เพิ่มฟิลด์สำหรับจัดการ Plan
+    subscriptionId: null as number | null,
+    subscriptionEndDate: null as string | null,
   });
 
-  // ✅ ฟังก์ชันดึงข้อมูล Profile จาก API
+  // ✅ ฟังก์ชันสำหรับตรวจสอบรายละเอียด Plan (เฉพาะจุดนี้ที่เพิ่มเข้ามา)
+  const getPlanDetails = (id: number | null) => {
+    switch (id) {
+      case 1:
+        return { name: "Basic", price: "99.00", color: "from-[#8200DB] to-[#5837F6]" };
+      case 2:
+        return { name: "Pro", price: "299.00", color: "from-[#3B82F6] to-[#2DD4BF]" };
+      case 3:
+        return { name: "Gold", price: "599.00", color: "from-[#F59E0B] to-[#EF4444]" };
+      default:
+        return { name: "No Plan", price: "0.00", color: "from-slate-400 to-slate-500" };
+    }
+  };
+
   const fetchProfile = useCallback(async () => {
     const token = localStorage.getItem("token");
     const userId = localStorage.getItem("user_id");
@@ -48,9 +62,11 @@ export default function ProfilePage() {
         email: user.email || "",
         username: user.username || "",
         accountNumber: user.accountNumber || user.account_number || "", 
+        // ✅ ดึงข้อมูล Subscription จาก DB
+        subscriptionId: user.subscription_id,
+        subscriptionEndDate: user.subscription_end_date,
       });
       
-      // ✅ 2. ตั้งค่าชื่อยืนยันเริ่มต้นจากข้อมูลที่ดึงมาครั้งแรก
       setConfirmedName(user.name || "");
 
     } catch (err: any) {
@@ -69,7 +85,6 @@ export default function ProfilePage() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // ✅ ฟังก์ชันบันทึกการเปลี่ยนแปลง
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const token = localStorage.getItem("token");
@@ -90,9 +105,7 @@ export default function ProfilePage() {
         }
       );
 
-      // ✅ 3. อัปเดตชื่อที่แสดงผลด้านบน เฉพาะเมื่อ API บันทึกสำเร็จ
       setConfirmedName(response.data.name);
-      
       alert("บันทึกการเปลี่ยนแปลงเรียบร้อยแล้ว!");
       
       setFormData(prev => ({ 
@@ -116,6 +129,9 @@ export default function ProfilePage() {
     );
   }
 
+  // ✅ เรียกใช้ข้อมูล Plan ก่อน Render
+  const plan = getPlanDetails(formData.subscriptionId);
+
   return (
     <div className="flex min-h-screen bg-[#F8FAFC] font-sans text-slate-800">
       <aside className="sticky top-0 h-screen hidden md:block">
@@ -136,30 +152,37 @@ export default function ProfilePage() {
                     <User size={50} className="text-[#8200DB]" />
                   </div>
                 </div>
-                {/* ✅ 4. ใช้ confirmedName ตรงนี้ เพื่อไม่ให้ชื่อเปลี่ยนขณะกำลังพิมพ์ */}
                 <h3 className="text-lg font-bold text-slate-800">{confirmedName}</h3>
                 <p className="text-slate-400 text-sm mb-6">@{formData.username}</p>
               </div>
 
-              {/* Billing Summary Card */}
-              <div className="bg-gradient-to-br from-[#8200DB] to-[#5837F6] rounded-3xl p-6 text-white shadow-lg shadow-purple-100">
+              {/* ✅ แก้ไขเฉพาะ Card Plan ตรงนี้ */}
+              <div className={`bg-gradient-to-br ${plan.color} rounded-3xl p-6 text-white shadow-lg shadow-purple-100 transition-all duration-500`}>
                 <div className="flex justify-between items-start mb-6">
                   <div className="bg-white/20 p-2 rounded-xl"><CreditCard size={20} /></div>
-                  <span className="bg-white/20 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest">Active</span>
+                  <span className="bg-white/20 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest">
+                    {formData.subscriptionId ? 'Active' : 'No Plan'}
+                  </span>
                 </div>
                 <p className="text-white/70 text-xs font-medium mb-1 font-sans">Current Plan</p>
                 <div className="flex items-baseline justify-between mb-4">
-                  <h2 className="text-2xl font-bold font-sans italic">Basic</h2>
-                  <span className="text-xl font-bold font-sans italic">฿99.00<span className="text-xs font-normal opacity-60">/mo</span></span>
+                  <h2 className="text-2xl font-bold font-sans italic">{plan.name}</h2>
+                  <span className="text-xl font-bold font-sans italic">
+                    ฿{plan.price}<span className="text-xs font-normal opacity-60">/mo</span>
+                  </span>
                 </div>
                 <div className="pt-4 border-t border-white/10 flex items-center gap-2 text-[11px] text-white/80 font-sans">
                   <ShieldCheck size={14} />
-                  <span>Valid until 21/03/2026</span>
+                  <span>
+                    {formData.subscriptionEndDate 
+                      ? `Valid until ${new Date(formData.subscriptionEndDate).toLocaleDateString('th-TH')}` 
+                      : 'No active subscription'}
+                  </span>
                 </div>
               </div>
             </div>
 
-            {/* Right Column - Edit Form */}
+            {/* Right Column - Edit Form (ไม่มีการเปลี่ยนแปลง) */}
             <div className="lg:col-span-8">
               <div className="bg-white rounded-3xl p-8 md:p-10 shadow-sm border border-slate-100 h-full flex flex-col text-black font-sans">
                 <div className="mb-8 font-sans">
@@ -173,7 +196,6 @@ export default function ProfilePage() {
                       <label className="text-xs font-bold text-slate-500 ml-1 uppercase tracking-wider font-sans">Full Name</label>
                       <div className="relative">
                         <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
-                        {/* ช่องนี้จะใช้ formData.name เพื่อให้พิมพ์แก้ได้ปกติ */}
                         <input 
                           name="name" 
                           type="text" 
