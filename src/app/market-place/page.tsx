@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
-import { Users, Copy, Star, Zap, Loader2, ShieldCheck, SearchX } from "lucide-react";
+import { Users, Copy, Star, Zap, Loader2, SearchX, TrendingUp } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import DashboardHeader from "@/components/Header"; 
 
@@ -13,10 +13,6 @@ const cardColors = [
   "from-purple-500 to-pink-600",
   "from-emerald-500 to-teal-600",
   "from-orange-500 to-red-600",
-  "from-cyan-500 to-blue-600",
-  "from-violet-500 to-fuchsia-600",
-  "from-amber-500 to-orange-600",
-  "from-indigo-500 to-purple-600",
 ];
 
 export default function MarketPlacePage() {
@@ -26,37 +22,52 @@ export default function MarketPlacePage() {
   const fetchMarketBots = useCallback(async () => {
     setIsLoading(true);
     try {
+      // ✅ ดึงข้อมูลบอท (Backend Include orderHistories มาให้แล้วตาม bots.service.ts)
       const botRes = await axios.get(`${API_URL}/bots`);
       
-      // ✅ กรองเฉพาะบอทที่เป็น PUBLIC และประเภท POLICY เท่านั้น (คัด AI ออก)
+      // 1. กรองเฉพาะบอท Public และประเภท POLICY (ตาม JSON: botType และ public)
       const filteredBots = botRes.data.filter((bot: any) => 
-        bot.public === true && 
-        bot.bot_type === "POLICY"
+        bot.public === true && bot.botType === "POLICY"
       );
 
-      // ดึงข้อมูล User และคำนวณสถิติ
+      // 2. ดึงรายละเอียด User และคำนวณสถิติจากประวัติการเทรด
       const botsWithDetails = await Promise.all(
         filteredBots.map(async (bot: any, index: number) => {
           try {
+            // ✅ ดึงข้อมูล User จริงจาก API
             const userRes = await axios.get(`${API_URL}/users/${bot.userId}`);
             
-            const win = bot.win_count || 0;
-            const loss = bot.loss_count || 0;
-            const total = win + loss;
-            const actualWinRate = total > 0 ? ((win / total) * 100).toFixed(1) : "0.0";
+            // --- 📊 ส่วนคำนวณ Win Rate จากประวัติการเทรดจริง ---
+            const history = bot.orderHistories || [];
+            const totalOrders = history.length;
+            
+            // นับเฉพาะไม้ที่มีกำไร (totalProfit >= 0) ตาม Entity: order-history.entity.ts
+            const winOrders = history.filter((order: any) => {
+              // ดึงค่า totalProfit และแปลงเป็น Number เพราะ Decimal ใน DB มักส่งมาเป็น String
+              const profit = Number(order.totalProfit || 0);
+              return profit >= 0; 
+            }).length;
+            
+            // คำนวณเป็น %
+            const winRateValue = totalOrders > 0 
+              ? ((winOrders / totalOrders) * 100).toFixed(1) 
+              : "0.0";
 
             return {
               ...bot,
               displayColor: cardColors[index % cardColors.length],
-              userName: userRes.data.username || "Verified Trader",
-              calculatedWinRate: actualWinRate
+              // ✅ นำชื่อจาก API มาเก็บไว้ใน userName
+              userName: userRes.data.username || userRes.data.name || "System Trader",
+              calculatedWinRate: winRateValue,
+              totalTrades: totalOrders
             };
           } catch (err) {
             return {
               ...bot,
               displayColor: cardColors[index % cardColors.length],
               userName: "Verified Trader",
-              calculatedWinRate: "0.0"
+              calculatedWinRate: "0.0",
+              totalTrades: 0
             };
           }
         })
@@ -75,9 +86,9 @@ export default function MarketPlacePage() {
   }, [fetchMarketBots]);
 
   if (isLoading) return (
-    <div className="h-screen flex flex-col items-center justify-center bg-white">
+    <div className="h-screen flex flex-col items-center justify-center bg-white text-black font-sans">
       <Loader2 className="animate-spin text-[#8B5CF6] w-12 h-12" />
-      <p className="mt-4 font-black text-slate-400 uppercase tracking-widest text-[10px]">Syncing Market Data...</p>
+      <p className="mt-4 font-black uppercase tracking-widest text-[10px]">Processing Trade Statistics...</p>
     </div>
   );
 
@@ -92,57 +103,52 @@ export default function MarketPlacePage() {
 
         <div className="p-8 lg:p-12 max-w-[1600px] w-full mx-auto">
           
-          {/* ✅ Empty State: ไร้ Border และปรับสีให้ชัดเจน */}
           {bots.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-48 animate-in fade-in duration-700">
-              <div className="mb-8">
-                {/* ไอคอนสีม่วงเข้มเพื่อให้ตัดกับพื้นหลังขาว */}
-                <SearchX size={80} className="text-[#8B5CF6] opacity-90" />
-              </div>
-              <h3 className="text-2xl font-black text-slate-900 uppercase tracking-[0.2em]">ไม่พบเจอบอทในตลาด</h3>
-              <p className="text-slate-500 text-sm font-bold uppercase mt-3 tracking-widest">ขณะนี้ยังไม่มีบอทประเภท POLICY ที่เปิดใช้งานแบบสาธารณะ</p>
+              <SearchX size={80} className="text-[#8B5CF6] mb-8" />
+              <h3 className="text-2xl font-black text-slate-900 uppercase tracking-widest">ไม่พบเจอบอทในตลาด</h3>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
               {bots.map((bot) => (
                 <div 
                   key={bot.id}
-                  className="group relative bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm hover:shadow-2xl hover:shadow-purple-100/40 hover:-translate-y-2 transition-all duration-500 overflow-hidden"
+                  className="group relative bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm hover:shadow-2xl hover:shadow-purple-100/40 hover:-translate-y-2 transition-all duration-500 overflow-hidden text-black"
                 >
-                  <div className={`absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br ${bot.displayColor} opacity-5 rounded-full group-hover:opacity-10 transition-opacity`} />
+                  <div className={`absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br ${bot.displayColor} opacity-5 rounded-full`} />
                   
-                  {/* Author Row */}
+                  {/* Header: User Profile */}
                   <div className="mb-8 flex justify-between items-start relative z-10">
                     <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100 group-hover:bg-white transition-colors">
                       <div className={`w-6 h-6 rounded-lg bg-gradient-to-tr ${bot.displayColor} flex items-center justify-center text-[10px] text-white font-black`}>
                         {bot.userName.charAt(0).toUpperCase()}
                       </div>
-                      {/* ✅ ชื่อ User ตัวตรง ไม่มี @ */}
-                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">
+                      {/* ✅ ดึงชื่อจากตัวแปร userName ที่เรา Fetch มาได้จริง */}
+                      <span className="text-[10px] font-black uppercase text-slate-600 tracking-wider">
                         {bot.userName}
                       </span>
                     </div>
-                    <div className={`p-3 bg-gradient-to-br ${bot.displayColor} rounded-2xl text-white shadow-lg shadow-purple-100 transform group-hover:rotate-12 transition-transform`}>
+                    <div className={`p-3 bg-gradient-to-br ${bot.displayColor} rounded-2xl text-white shadow-lg shadow-purple-200 transform group-hover:rotate-12 transition-transform`}>
                       <Zap size={18} fill="currentColor" />
                     </div>
                   </div>
 
-                  {/* Bot Identity & Copy Rate */}
-                  <div className="mb-8">
-                    <h3 className="text-2xl font-black text-slate-900 tracking-tight leading-none">
-                      {bot.stock} Bot
+                  {/* Body: Bot Identity */}
+                  <div className="mb-8 relative z-10">
+                    <h3 className="text-2xl font-black tracking-tight leading-none">
+                      {bot.stock} 
                     </h3>
                     <div className="flex items-center gap-2 mt-4">
                       <div className="flex items-center gap-1.5 bg-purple-50 px-3 py-1.5 rounded-xl border border-purple-100">
                         <Users size={12} className="text-[#8B5CF6]" />
-                        <p className="text-[10px] font-black text-[#8B5CF6] uppercase tracking-widest">
-                          {Number(bot.copy_rate || 0).toLocaleString()} Copy Trades
+                        <p className="text-[10px] font-black text-[#8B5CF6] uppercase tracking-wider">
+                          {Number(bot.copyRate || 0).toLocaleString()} Copy Trades
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  {/* Stats Row */}
+                  {/* Stats Section */}
                   <div className="grid grid-cols-2 gap-4 pt-6 border-t border-slate-50 relative z-10">
                     <div>
                       <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest mb-1">Total PnL</p>
@@ -152,18 +158,19 @@ export default function MarketPlacePage() {
                     </div>
                     <div className="text-right">
                       <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest mb-1">Win Rate</p>
-                      <div className="flex items-center justify-end gap-1">
-                          <Star size={12} fill="#8B5CF6" className="text-[#8B5CF6]" />
-                          <p className="text-xl font-black text-slate-800">{bot.calculatedWinRate}%</p>
+                      <div className="flex items-center justify-end gap-1 font-black text-xl text-slate-800">
+                        <Star size={12} fill="#8B5CF6" className="text-[#8B5CF6]" />
+                        {/* ✅ แสดง Win Rate ที่คำนวณจริง */}
+                        {bot.calculatedWinRate}%
                       </div>
                     </div>
                   </div>
 
-                  {/* Hover Overlay */}
-                  <div className="absolute inset-0 bg-[#1E1B4B]/90 backdrop-blur-md opacity-0 group-hover:opacity-100 transition-all duration-500 flex items-center justify-center z-20">
+                  {/* Hover Actions */}
+                  <div className="absolute inset-0 bg-[#1E1B4B]/95 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all duration-500 flex flex-col items-center justify-center z-20 p-6">
                     <button 
-                      onClick={() => console.log("Copying Bot ID:", bot.id)}
-                      className="flex items-center gap-3 bg-[#8B5CF6] text-white px-8 py-4 rounded-2xl font-black shadow-xl hover:scale-105 transition-all uppercase text-[11px] tracking-widest"
+                      onClick={() => console.log("Copying ID:", bot.id)}
+                      className="w-full bg-[#8B5CF6] text-white py-4 rounded-2xl font-black uppercase text-[11px] tracking-widest shadow-xl hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2 font-sans"
                     >
                       <Copy size={16} /> Copy Strategy
                     </button>
