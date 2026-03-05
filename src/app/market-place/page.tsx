@@ -172,7 +172,7 @@ export default function MarketPlacePage() {
                       onClick={() => console.log("Copying ID:", bot.id)}
                       className="w-full bg-[#8B5CF6] text-white py-4 rounded-2xl font-black uppercase text-[11px] tracking-widest shadow-xl hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2 font-sans"
                     >
-                      <Copy size={16} /> Copy Strategy
+                      <Copy size={16} /> Copy Trade
                     </button>
                   </div>
                 </div>
