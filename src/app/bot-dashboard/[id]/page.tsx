@@ -6,16 +6,22 @@ import Sidebar from "@/components/Sidebar";
 import DashboardHeader from "@/components/Header"; 
 import { Bot, TrendingUp, TrendingDown, Loader2, ShieldCheck, ChevronDown } from "lucide-react";
 
-// --- Interfaces ---
-interface HistoryOrder {
-  id: number; botId: number; orderId: string; priceAt: string;
-  amount: number; action: "BUY" | "SELL"; totalProfit: string; dateTime: string;
-}
+// --- Configuration Constants ---
+const INDICATOR_OPTIONS = ["RSI", "SMA", "EMA", "MACD", "STOCH", "ATR", "BBANDS", "OBV", "CLOSE", "OPEN", "HIGH", "LOW", "ADX", "DZV", "VWAP", "VOLUME", "HIGHN", "LOWN", "KELTNER", "DONCHIAN", "CHOP", "CRSI", "SUPERTREND"];
+const CONDITION_OPTIONS = [
+  { label: "Cross Above", value: "CROSS_ABOVE" },
+  { label: "Cross Below", value: "CROSS_BELOW" },
+  { label: "Greater (>)", value: "GREATER" },
+  { label: "Less (<)", value: "LESS" }
+];
 
 interface BotData {
-  id: number; stock: string; status: string; public: boolean; 
-  totalPnL: number; history: HistoryOrder[];
-  policy: { risk: { risk_pct: number; sl_model: string; atr_period: number; atr_mult: number; rr: number; }; };
+  id: number; stock: string; status: string; public: boolean; botType: string;
+  totalPnL: number; history: any[];
+  policy: { 
+    risk: { risk_pct: number; sl_model: string; atr_period: number; atr_mult: number; rr: number; }; 
+    rules: any[]; 
+  };
 }
 
 export default function BotDetailPage() {
@@ -28,13 +34,14 @@ export default function BotDetailPage() {
   const [isToggling, setIsToggling] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // --- States สำหรับ Configuration Form ---
+  // --- Configuration States ---
   const [riskPct, setRiskPct] = useState(0);
   const [slModel, setSlModel] = useState("ATR");
   const [atrPeriod, setAtrPeriod] = useState(0);
   const [atrMult, setAtrMult] = useState(0);
   const [rrValue, setRrValue] = useState(0);
   const [isPrivate, setIsPrivate] = useState(false);
+  const [rules, setRules] = useState<any[]>([]);
 
   const fetchBotData = useCallback(async () => {
     if (!botId) return;
@@ -101,8 +108,6 @@ export default function BotDetailPage() {
   };
 
   if (isLoading) return <div className="min-h-screen bg-white flex items-center justify-center"><Loader2 className="animate-spin text-[#8B5CF6] w-12 h-12" /></div>;
-
-  const isLoss = (data?.totalPnL ?? 0) < 0;
 
   return (
     <div className="flex min-h-screen bg-[#FDFCFE] font-sans text-slate-800">

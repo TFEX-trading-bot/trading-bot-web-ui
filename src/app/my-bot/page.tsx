@@ -35,7 +35,6 @@ export default function MyBotPage() {
         }
       });
       
-      // ✅ ตรวจสอบข้อมูลและสั่งเรียงลำดับ ID จากน้อยไปมาก
       const rawData = Array.isArray(res.data) ? res.data : [];
       const sortedBots = rawData.sort((a: any, b: any) => a.id - b.id);
       
@@ -51,10 +50,15 @@ export default function MyBotPage() {
     fetchBots();
   }, [fetchBots]);
 
-  // ✅ 2. ฟังก์ชันจัดการการคลิกนำทาง
+  // ✅ 2. ฟังก์ชันจัดการการคลิกนำทางไปยัง Dashboard
   const handleCardClick = (id: number) => {
     setNavigatingId(id); 
     router.push(`/bot-dashboard/${id}`);
+  };
+
+  // ✅ 3. ฟังก์ชันนำทางไปยังหน้าสร้างบอท
+  const handleAddBotClick = () => {
+    router.push('/create-bot');
   };
 
   const renderedBots = useMemo(() => {
@@ -71,11 +75,9 @@ export default function MyBotPage() {
         <div 
           key={bot.id} 
           onClick={() => handleCardClick(bot.id)}
-          // ✅ โหลดหน้าถัดไปล่วงหน้าเมื่อเมาส์วาง ช่วยให้เปลี่ยนหน้าเร็วขึ้น
           onMouseEnter={() => router.prefetch(`/bot-dashboard/${bot.id}`)}
           className="group relative cursor-pointer active:scale-95 hover:scale-[1.02] transition-all duration-200"
         >
-          {/* ✅ Loading Overlay แสดงสถานะขณะกำลังเปลี่ยนหน้า */}
           {navigatingId === bot.id && (
             <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/60 backdrop-blur-[2px] rounded-[2rem]">
               <Loader2 className="animate-spin text-[#8200DB]" size={32} />
@@ -107,10 +109,17 @@ export default function MyBotPage() {
         <DashboardHeader title="My Bot" />
 
         <div className="p-8">
-          {/* ✅ แสดงบอทที่เรียง ID แล้วในรูปแบบ Grid 3-4 คอลัมน์ */}
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6 transition-opacity duration-300">
             {renderedBots}
-            <AddBotCard />
+            
+            {/* ✅ ปุ่ม Add Bot Card ที่เชื่อมไปยังหน้า create-bot */}
+            <div 
+              onClick={handleAddBotClick}
+              onMouseEnter={() => router.prefetch('/create-bot')}
+              className="cursor-pointer active:scale-95 hover:scale-[1.02] transition-all duration-200"
+            >
+              <AddBotCard />
+            </div>
           </div>
         </div>
       </main>
