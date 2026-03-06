@@ -138,8 +138,8 @@ export default function BotDetailPage() {
         method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
-      if (response.ok) { alert("บันทึกข้อมูลเรียบร้อยแล้ว!"); fetchBotData(); }
-    } catch (err) { alert("บันทึกไม่สำเร็จ"); }
+      if (response.ok) { alert("Data saved successfully!"); fetchBotData(); }
+    } catch (err) { alert("Save failed"); }
     finally { setIsSaving(false); }
   };
 
@@ -150,7 +150,7 @@ export default function BotDetailPage() {
     try {
       await fetch(`http://localhost:8000/bot/${botId}/${action}`, { method: "POST" });
       await fetchBotData();
-    } catch (err) { alert("เกิดข้อผิดพลาดในการเชื่อมต่อ Port 8000"); }
+    } catch (err) { alert("Error connecting to Port 8000"); }
     finally { setIsToggling(false); }
   };
 
