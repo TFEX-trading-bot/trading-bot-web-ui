@@ -10,6 +10,7 @@ interface HeroProps {
 export default function Hero({ onOpenAuth }: HeroProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  // --- ส่วนที่ 1: การจัดการ Canvas และ Particle Background ---
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -20,11 +21,13 @@ export default function Hero({ onOpenAuth }: HeroProps) {
     let animationFrameId: number;
     let particles: Particle[] = [];
 
+    // ฟังก์ชันปรับขนาด Canvas ให้เต็มจอ
     const resizeCanvas = () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
     };
 
+    // คลาสสำหรับสร้างและจัดการอนุภาค (Particle)
     class Particle {
       x: number;
       y: number;
@@ -40,6 +43,7 @@ export default function Hero({ onOpenAuth }: HeroProps) {
         this.speedY = Math.random() * 1 - 0.5;
       }
 
+      // อัปเดตตำแหน่งอนุภาค
       update() {
         this.x += this.speedX;
         this.y += this.speedY;
@@ -49,15 +53,17 @@ export default function Hero({ onOpenAuth }: HeroProps) {
         if (this.y < 0) this.y = canvas!.height;
       }
 
+      // วาดอนุภาคลงบน Canvas
       draw() {
         if (!ctx) return;
-        ctx.fillStyle = "#6A0DAD"; // เปลี่ยนเป็นม่วงเข้มขึ้นสำหรับพื้นหลังขาว
+        ctx.fillStyle = "#6A0DAD"; 
         ctx.beginPath();
         ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
         ctx.fill();
       }
     }
 
+    // เริ่มต้นสร้างอนุภาคจำนวน 50 ตัว
     const initParticles = () => {
       particles = [];
       for (let i = 0; i < 50; i++) {
@@ -65,12 +71,14 @@ export default function Hero({ onOpenAuth }: HeroProps) {
       }
     };
 
+    // ฟังก์ชันแอนิเมชัน วาดอนุภาคและเส้นเชื่อมโยง
     const animateParticles = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       for (let i = 0; i < particles.length; i++) {
         particles[i].update();
         particles[i].draw();
 
+        // วาดเส้นเชื่อมโยงระหว่างอนุภาคที่อยู่ใกล้กัน
         for (let j = i; j < particles.length; j++) {
           const dx = particles[i].x - particles[j].x;
           const dy = particles[i].y - particles[j].y;
@@ -78,7 +86,6 @@ export default function Hero({ onOpenAuth }: HeroProps) {
 
           if (distance < 150) {
             ctx.beginPath();
-            // ปรับเส้นเชื่อมโยงให้เข้มขึ้นเล็กน้อย (0.15)
             ctx.strokeStyle = `rgba(106, 13, 173, ${0.15 - distance / 1000})`;
             ctx.lineWidth = 1;
             ctx.moveTo(particles[i].x, particles[i].y);
@@ -103,13 +110,14 @@ export default function Hero({ onOpenAuth }: HeroProps) {
 
   return (
     <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 overflow-hidden bg-white">
+      {/* ส่วนประกอบพื้นหลัง Canvas */}
       <canvas
         ref={canvasRef}
-        className="absolute top-0 left-0 z-0 pointer-events-none opacity-20" // ลด opacity ลงเพื่อให้ดูคลีน
+        className="absolute top-0 left-0 z-0 pointer-events-none opacity-20"
       />
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        {/* Badge */}
+        {/* ส่วน Badge แสดงสถานะเวอร์ชัน */}
         <div className="inline-flex items-center px-4 py-2 rounded-full border border-purple-200 bg-purple-50 mb-8 animate-pulse-slow">
           <span className="w-2 h-2 rounded-full bg-[#6A0DAD] mr-2 shadow-[0_0_10px_rgba(106,13,173,0.5)]"></span>
           <span className="text-[#6A0DAD] text-sm font-semibold tracking-wide uppercase">
@@ -117,19 +125,20 @@ export default function Hero({ onOpenAuth }: HeroProps) {
           </span>
         </div>
 
-        {/* Heading - ใช้ Slate-900 เพื่อให้ตัดกับพื้นขาว */}
+        {/* ส่วนหัวข้อหลัก (Main Heading) */}
         <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight mb-6 leading-tight text-slate-900">
           ให้ AI ทำกำไรแทนคุณ <br />
           ในตลาด <span className="gradient-text">SET50 & TFEX</span>
         </h1>
 
-        {/* Description - ใช้ Slate-500 */}
+        {/* ส่วนคำบรรยาย (Description) */}
         <p className="mt-4 text-xl text-slate-500 max-w-3xl mx-auto mb-10 font-medium">
           ระบบบอทเทรดอัจฉริยะ วิเคราะห์กราฟเทคนิค Real-time แม่นยำ รวดเร็ว
           และไร้อารมณ์ ช่วยให้คุณสร้าง Cash Flow ได้ตลอด 24 ชั่วโมง
           โดยไม่ต้องเฝ้าหน้าจอ
         </p>
 
+        {/* ส่วนปุ่ม Call to Action */}
         <div className="flex flex-col sm:flex-row justify-center gap-4">
           <button
             onClick={onOpenAuth}
@@ -137,18 +146,18 @@ export default function Hero({ onOpenAuth }: HeroProps) {
           >
             <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-shimmer"></div>
             <span className="flex items-center gap-2">
-              เริ่มต้นใช้งานฟรี <ArrowRight className="w-5 h-5" />
+              Get Started for Free <ArrowRight className="w-5 h-5" />
             </span>
           </button>
           <a
             href="#how-it-works"
             className="px-8 py-4 bg-white border border-slate-200 hover:border-slate-400 text-slate-600 hover:text-slate-900 text-lg font-bold rounded-2xl transition-all hover:bg-slate-50 flex items-center justify-center shadow-sm"
           >
-            ดูวิธีการทำงาน
+            How it works
           </a>
         </div>
 
-        {/* Stats Grid - ปรับสีกรอบและตัวอักษร */}
+        {/* ส่วนแสดงสถิติ (Stats Grid) */}
         <div className="mt-16 grid grid-cols-2 gap-8 md:grid-cols-4 border-t border-slate-100 pt-8">
           <div>
             <div className="text-3xl font-black text-slate-900 mb-1">฿2.5M+</div>
