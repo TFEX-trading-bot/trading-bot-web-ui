@@ -12,15 +12,18 @@ import SuccessModal from "@/components/SuccessModal";
 const API_URL = "https://trading-bot-api-sigma.vercel.app";
 
 export default function PricingPage() {
+  // --- ส่วนที่ 1: การจัดการ States ---
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
+  // States สำหรับควบคุมการเปิด/ปิดของ Modal แต่ละขั้นตอน
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
 
+  // --- ส่วนที่ 2: การดึงข้อมูลจาก API ---
   const fetchSubscriptions = useCallback(async () => {
     setLoading(true);
     try {
@@ -35,6 +38,8 @@ export default function PricingPage() {
 
   useEffect(() => { fetchSubscriptions(); }, [fetchSubscriptions]);
 
+  // --- ส่วนที่ 3: การประมวลผลข้อมูล (Filtering & Sorting) ---
+  // กรองแผนตามรอบการชำระเงินที่เลือก (30 วัน หรือ 365 วัน)
   const filteredPlans = useMemo(() => {
     const targetDuration = billingCycle === "monthly" ? 30 : 365;
     return subscriptions
@@ -42,27 +47,43 @@ export default function PricingPage() {
       .sort((a, b) => a.price - b.price);
   }, [subscriptions, billingCycle]);
 
-  const getPlanVisuals = (name: string) => {
-    const n = name.toLowerCase();
-    if (n.includes("basic")) return { icon: <Package size={24} />, bg: "bg-[#F5F3FF]" };
-    if (n.includes("pro")) return { icon: <Rocket size={24} />, bg: "bg-[#F5F3FF]" };
-    return { icon: <Gem size={24} />, bg: "bg-[#F5F3FF]" };
-  };
-
+  // --- ส่วนที่ 4: Logic การเลือกแผนและการตรวจสอบสิทธิ์ ---
   const handleSelectPlan = (sub: any) => {
+    const token = localStorage.getItem("token");
+    
+    // ตรวจสอบว่าผู้ใช้ Login หรือยังก่อนจะดำเนินการชำระเงิน
+    if (!token) {
+      alert("Please login to continue with the purchase.");
+      return;
+    }
+
+    // บันทึกข้อมูลแผนที่เลือกลงใน State เพื่อส่งต่อให้ Modal
     setSelectedPlan({
       id: sub.id,
       name: sub.name,
       price: sub.price,
       botNumber: sub.botNumber,
-      billingCycle: billingCycle === "monthly" ? "Month" : "Year"
+      billingCycle: billingCycle === "monthly" ? "Month" : "Year",
+      description: sub.description
     });
+    
     setIsCheckoutOpen(true);
   };
 
+  // --- ส่วนที่ 5: การจัดการด้านความสวยงาม (Visuals) ---
+  // กำหนดไอคอนและสีพื้นหลังตามชื่อของแผน
+  const getPlanVisuals = (name: string) => {
+    const n = name.toLowerCase();
+    if (n.includes("basic")) return { icon: <Package size={24} />, color: "text-[#8B5CF6]", bg: "bg-[#F5F3FF]" };
+    if (n.includes("pro")) return { icon: <Rocket size={24} />, color: "text-[#7C3AED]", bg: "bg-[#EDE9FE]" };
+    return { icon: <Gem size={24} />, color: "text-[#6D28D9]", bg: "bg-[#F3E8FF]" };
+  };
+
+  // แสดงหน้าจอ Loading ระหว่างรอข้อมูลจาก API
   if (loading) return (
-    <div className="h-screen flex flex-col items-center justify-center bg-white text-black">
+    <div className="h-screen flex flex-col items-center justify-center bg-white">
       <Loader2 className="animate-spin text-[#8B5CF6]" size={40} />
+      <p className="mt-4 font-bold text-slate-400">Loading Plans...</p>
     </div>
   );
 
@@ -77,7 +98,7 @@ export default function PricingPage() {
 
         <div className="p-6 lg:p-10 w-full max-w-[1400px] mx-auto">
           
-          {/* ✅ ลด Margin Bottom ลงเพื่อให้เห็น Card ไวขึ้น */}
+          {/* ปุ่มสลับรอบการชำระเงิน (Monthly / Yearly) */}
           <div className="flex justify-center mb-12">
             <div className="bg-slate-100/70 p-1 rounded-xl flex items-center border border-slate-200/50">
               <button
@@ -99,38 +120,45 @@ export default function PricingPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-20">
+          {/* ตารางแสดงแพ็กเกจราคา */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-20">
             {filteredPlans.map((sub) => {
               const visuals = getPlanVisuals(sub.name);
               
               return (
                 <div
                   key={sub.id}
-                  // ✅ ลด Padding เป็น p-8 และ min-h เป็น 480px เพื่อให้สั้นลง
-                  className="group relative bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-purple-100/40 transition-all duration-500 flex flex-col min-h-[480px]"
+                  className="group relative bg-white rounded-[3rem] p-10 border border-slate-100 shadow-sm hover:shadow-2xl hover:shadow-purple-100/40 transition-all duration-500 flex flex-col min-h-[550px]"
                 >
-                  <div className="flex items-center gap-4 mb-6">
-                    <div className={`p-3 ${visuals.bg} rounded-xl text-[#8B5CF6]`}>
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className={`p-4 ${visuals.bg} ${visuals.color} rounded-2xl shadow-sm`}>
                       {visuals.icon}
                     </div>
-                    <h3 className="text-2xl font-black text-slate-900 tracking-tight">{sub.name}</h3>
+                    <div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Plan</p>
+                      <h3 className="text-2xl font-black text-slate-900 tracking-tight">{sub.name}</h3>
+                    </div>
                   </div>
                   
-                  <p className="text-slate-400 text-sm font-bold mb-8 flex-grow leading-snug">
-                    {sub.description || `Unlock up to ${sub.botNumber} bots.`}
-                  </p>
-
-                  {/* ✅ ลด Padding Bottom และ Margin Bottom */}
-                  <div className="flex items-baseline gap-1 mb-8 pb-6 border-b border-slate-50">
-                    <span className="text-5xl font-black text-slate-900 tracking-tighter">฿{Number(sub.price).toLocaleString()}</span>
-                    <span className="text-slate-400 font-black text-[10px] uppercase">/{billingCycle === "monthly" ? "month" : "year"}</span>
+                  {/* รายละเอียดคำอธิบายแพ็กเกจ */}
+                  <div className="space-y-4 mb-10 flex-grow">
+                    <p className="text-slate-400 text-sm font-medium leading-relaxed">
+                      {sub.description || "Get full access to our trading automation tools with advanced analytics."}
+                    </p>
                   </div>
 
+                  {/* ส่วนแสดงราคาและการคำนวณเงิน */}
+                  <div className="flex items-baseline gap-1 mb-10 pb-8 border-b border-slate-50">
+                    <span className="text-6xl font-black text-slate-900 tracking-tighter">฿{Number(sub.price).toLocaleString()}</span>
+                    <span className="text-slate-400 font-black text-xs uppercase tracking-widest">/{billingCycle === "monthly" ? "month" : "year"}</span>
+                  </div>
+
+                  {/* ปุ่มกดเพื่อเลือกแผนและเข้าสู่หน้าชำระเงิน */}
                   <button
                     onClick={() => handleSelectPlan(sub)}
-                    className="w-full py-4 rounded-xl font-black text-xs uppercase tracking-widest transition-all bg-[#1E1B4B] text-white hover:bg-[#8B5CF6] flex items-center justify-center gap-2"
+                    className="w-full py-5 rounded-2xl font-black text-sm uppercase tracking-[0.2em] transition-all bg-[#1E1B4B] text-white hover:bg-[#8B5CF6] hover:scale-[1.02] active:scale-95 shadow-lg shadow-purple-100 flex items-center justify-center gap-2 group/btn"
                   >
-                    Select Plan <ArrowRight size={14} />
+                    Select Plan <ArrowRight size={18} className="group-hover/btn:translate-x-1 transition-transform" />
                   </button>
                 </div>
               );
@@ -139,24 +167,36 @@ export default function PricingPage() {
         </div>
       </main>
 
+      {/* --- ส่วนที่ 6: การจัดการ Modals (Checkout -> Payment -> Success) --- */}
       {selectedPlan && (
         <>
+          {/* Modal สรุปยอดก่อนชำระเงิน */}
           <CheckoutSummary 
             isOpen={isCheckoutOpen} 
             onClose={() => setIsCheckoutOpen(false)} 
             plan={selectedPlan} 
-            onConfirm={() => { setIsCheckoutOpen(false); setTimeout(() => setIsPaymentOpen(true), 300); }} 
+            onConfirm={() => { 
+              setIsCheckoutOpen(false); 
+              setTimeout(() => setIsPaymentOpen(true), 400); 
+            }} 
           />
+          
+          {/* Modal แสดง QR Code สำหรับชำระเงิน */}
           <PaymentModal 
             isOpen={isPaymentOpen} 
             onClose={() => setIsPaymentOpen(false)}
-            onSuccess={() => { setIsPaymentOpen(false); setTimeout(() => setIsSuccessOpen(true), 300); }}
-            planId={selectedPlan?.id || 0}
+            onSuccess={() => { 
+              setIsPaymentOpen(false); 
+              setTimeout(() => setIsSuccessOpen(true), 400); 
+            }}
+            planId={selectedPlan.id} 
           />
+
+          {/* Modal แจ้งเตือนเมื่อทำรายการสำเร็จ */}
           <SuccessModal 
             isOpen={isSuccessOpen} 
             onClose={() => setIsSuccessOpen(false)}
-            planName={selectedPlan?.name || ""}
+            planName={selectedPlan.name}
           />
         </>
       )}
