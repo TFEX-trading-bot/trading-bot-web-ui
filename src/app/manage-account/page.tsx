@@ -16,7 +16,7 @@ export default function ProfilePage() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [confirmedName, setConfirmedName] = useState("");
   
-  // ✅ 1. เพิ่ม State สำหรับเก็บรายการแผนที่ดึงมาจาก API /subscriptions
+  // ✅ 1. State สำหรับเก็บรายการแผนที่ดึงมาจาก API /subscriptions
   const [availablePlans, setAvailablePlans] = useState<any[]>([]);
 
   const [formData, setFormData] = useState({
@@ -31,14 +31,12 @@ export default function ProfilePage() {
 
   // ✅ 2. ฟังก์ชันดึงรายละเอียดแผนจากข้อมูลที่ดึงมาจาก API จริงๆ
   const getPlanDetails = (id: number | null) => {
-    // ค้นหาแผนในรายการ availablePlans ที่มี id ตรงกับของผู้ใช้
     const activePlan = availablePlans.find(p => p.id === id);
     
     if (!activePlan) {
       return { name: "No Plan", price: "0.00", color: "from-slate-400 to-slate-500" };
     }
 
-    // กำหนดสีตามระดับแผน (Mapping colors to plan IDs)
     const planColors: Record<number, string> = {
       1: "from-[#8200DB] to-[#5837F6]", // Basic
       2: "from-[#3B82F6] to-[#2DD4BF]", // Pro
@@ -62,14 +60,13 @@ export default function ProfilePage() {
     }
 
     try {
-      // ✅ 3. ดึงข้อมูล User และ รายการ Subscriptions พร้อมกัน
       const [userRes, plansRes] = await Promise.all([
         axios.get(`${API_URL}/users/${userId}`, { headers: { Authorization: `Bearer ${token}` } }),
         axios.get(`${API_URL}/subscriptions`, { headers: { Authorization: `Bearer ${token}` } })
       ]);
 
       const user = userRes.data;
-      setAvailablePlans(plansRes.data); // เก็บข้อมูลแผนทั้งหมดไว้ใน State
+      setAvailablePlans(plansRes.data);
 
       setFormData({
         id: user.id.toString(),
@@ -103,6 +100,17 @@ export default function ProfilePage() {
     e.preventDefault();
     const token = localStorage.getItem("token");
 
+    // ✅ เพิ่มการตรวจสอบข้อมูล (Validation) ก่อนส่ง API
+    if (!formData.name.trim()) {
+      alert("Please enter your full name.");
+      return;
+    }
+
+    if (!formData.accountNumber.trim()) {
+      alert("Please enter your bank account number.");
+      return;
+    }
+
     if (!formData.id) return;
     setIsUpdating(true);
 
@@ -117,7 +125,6 @@ export default function ProfilePage() {
       );
 
       setConfirmedName(response.data.name);
-      // เปลี่ยนเป็นภาษาอังกฤษ
       alert("Changes saved successfully!");
       
       setFormData(prev => ({ 
@@ -127,7 +134,6 @@ export default function ProfilePage() {
       }));
     } catch (err: any) {
       console.error("Update Error:", err);
-      // เปลี่ยนเป็นภาษาอังกฤษ
       alert(`Failed: ${err.response?.data?.message || err.message}`);
     } finally {
       setIsUpdating(false);
@@ -142,7 +148,6 @@ export default function ProfilePage() {
     );
   }
 
-  // ✅ เรียกใช้ข้อมูล Plan ที่ดึงมาจาก API ก่อน Render
   const currentPlan = getPlanDetails(formData.subscriptionId);
 
   return (
@@ -169,7 +174,6 @@ export default function ProfilePage() {
                 <p className="text-slate-400 text-sm mb-2 font-bold tracking-tight">@{formData.username}</p>
               </div>
 
-              {/* ✅ แผนสมาชิกที่ดึงข้อมูลมาจาก API จริง */}
               <div className={`bg-gradient-to-br ${currentPlan.color} rounded-[2.5rem] p-8 text-white shadow-xl shadow-purple-200/50 transition-all duration-500`}>
                 <div className="flex justify-between items-start mb-8">
                   <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-md"><CreditCard size={20} /></div>
@@ -213,6 +217,7 @@ export default function ProfilePage() {
                         <input 
                           name="name" type="text" value={formData.name} onChange={handleChange} 
                           className="w-full pl-14 pr-6 py-4 bg-slate-50 border-none rounded-2xl outline-none focus:ring-2 focus:ring-purple-200 font-bold transition-all" 
+                          placeholder="Full Name"
                         />
                       </div>
                     </div>
