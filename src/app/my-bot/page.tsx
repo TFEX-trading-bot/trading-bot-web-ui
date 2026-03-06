@@ -1,51 +1,103 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import BotDisplayCard from '@/components/BotDisplayCard';
-import AddBotCard from '@/components/AddBotCard';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import axios from 'axios';
+import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react"; 
 import Sidebar from "@/components/Sidebar"; 
 import DashboardHeader from "@/components/Header";
-import { Loader2 } from "lucide-react";
-import axios from 'axios';
+import BotDisplayCard from '@/components/BotDisplayCard';
+import AddBotCard from '@/components/AddBotCard';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://trading-bot-api-sigma.vercel.app";
+const API_URL = "https://trading-bot-api-sigma.vercel.app";
 
 export default function MyBotPage() {
-  const [bots, setBots] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const [bots, setBots] = useState<any[] | null>(null);
+  const [navigatingId, setNavigatingId] = useState<number | null>(null);
+
+  // ✅ 1. ฟังก์ชันดึงข้อมูลและเรียงลำดับตาม ID
+  const fetchBots = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    const userId = localStorage.getItem("user_id"); 
+
+    if (!userId || userId === "undefined" || !token) {
+      console.warn("Session expired or User ID not found.");
+      router.push("/"); 
+      return;
+    }
+
+    try {
+      const res = await axios.get(`${API_URL}/bots/user/${userId}`, {
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Cache-Control': 'no-cache'
+        }
+      });
+      
+      const rawData = Array.isArray(res.data) ? res.data : [];
+      const sortedBots = rawData.sort((a: any, b: any) => a.id - b.id);
+      
+      setBots(sortedBots);
+    } catch (err: any) {
+      console.error("Fetch error:", err.message);
+      if (err.response?.status === 401) router.push("/");
+      setBots([]); 
+    }
+  }, [router]);
 
   useEffect(() => {
-    const fetchBots = async () => {
-      const token = localStorage.getItem("token");
-      // เช็คให้ชัวร์ว่า key ใน localStorage ตรงกับตอน Login (ซึ่งปกติคุณใช้ user_id)
-      const userId = localStorage.getItem("user_id");
-      
-      // ตรวจสอบความถูกต้องของข้อมูลก่อนยิง API
-      if (!userId || userId === "undefined" || !token) {
-        console.warn("Auth data missing, stopping fetch");
-        setLoading(false);
-        return;
-      }
-
-      try {
-        // ลองตรวจสอบที่ Backend ว่าใช้ /api/bots หรือแค่ /bots
-        const res = await axios.get(`${API_URL}/api/bots/user/${userId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        setBots(Array.isArray(res.data) ? res.data : []);
-      } catch (err: any) {
-        console.error("Fetch error details:", err.response?.status, err.message);
-        // ถ้ายัง 404 ให้ลองเอา /api ออกในใจแล้วลองเทสดูครับ
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchBots();
-  }, []);
+  }, [fetchBots]);
+
+  // ✅ 2. ฟังก์ชันจัดการการคลิกนำทางไปยัง Dashboard
+  const handleCardClick = (id: number) => {
+    setNavigatingId(id); 
+    router.push(`/bot-dashboard/${id}`);
+  };
+
+  // ✅ 3. ฟังก์ชันนำทางไปยังหน้าสร้างบอท
+  const handleAddBotClick = () => {
+    router.push('/create-bot');
+  };
+
+  const renderedBots = useMemo(() => {
+    if (!bots) return null;
+
+    return bots.map((bot) => {
+      let cardVariant: "green" | "red" | "gray" = "gray";
+      const pnl = Number(bot.totalPnL || 0);
+
+      if (pnl > 0) cardVariant = "green";
+      else if (pnl < 0) cardVariant = "red";
+
+      return (
+        <div 
+          key={bot.id} 
+          onClick={() => handleCardClick(bot.id)}
+          onMouseEnter={() => router.prefetch(`/bot-dashboard/${bot.id}`)}
+          className="group relative cursor-pointer active:scale-95 hover:scale-[1.02] transition-all duration-200"
+        >
+          {navigatingId === bot.id && (
+            <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/60 backdrop-blur-[2px] rounded-[2rem]">
+              <Loader2 className="animate-spin text-[#8200DB]" size={32} />
+              <p className="text-[10px] font-black text-[#8200DB] mt-2 uppercase tracking-tighter">Entering...</p>
+            </div>
+          )}
+
+          <BotDisplayCard
+            name={bot.stock || "Unknown"} 
+            price={pnl} 
+            change={bot.change || "+0.00"} 
+            changePct={bot.changePct || "0.00%"}
+            currency="THB"
+            variant={cardVariant} 
+            botKind={bot.botType?.toLowerCase() === 'ai' ? 'ai' : 'manual'}
+          />
+        </div>
+      );
+    });
+  }, [bots, router, navigatingId]);
 
   return (
     <div className="flex min-h-screen bg-slate-50 font-sans text-slate-800">
@@ -55,29 +107,20 @@ export default function MyBotPage() {
 
       <main className="flex flex-col flex-1 bg-white">
         <DashboardHeader title="My Bot" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6 p-8">
-          {loading ? (
-            <div className="col-span-full flex flex-col items-center justify-center py-20 gap-4">
-              <Loader2 className="animate-spin text-[#6A0DAD] w-12 h-12" />
-              <p className="text-slate-400 font-medium italic">กำลังดึงข้อมูลบอทจากระบบ...</p>
-            </div>
-          ) : (
-            <>
-              {bots.map((bot) => (
-                <BotDisplayCard
-                  key={bot.id}
-                  name={bot.stock || "Unknown Bot"} 
-                  price={bot.current_price || 0} 
-                  change={bot.change_value || "0.00"}
-                  changePct={bot.change_pct || "0.00%"}
-                  currency="THB"
-                  variant={bot.status === 'RUNNING' ? 'green' : 'gray'}
-                  botKind={bot.bot_type?.toLowerCase() === 'ai' ? 'ai' : 'manual'}
-                />
-              ))}
+
+        <div className="p-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6 transition-opacity duration-300">
+            {renderedBots}
+            
+            {/* ✅ ปุ่ม Add Bot Card ที่เชื่อมไปยังหน้า create-bot */}
+            <div 
+              onClick={handleAddBotClick}
+              onMouseEnter={() => router.prefetch('/create-bot')}
+              className="cursor-pointer active:scale-95 hover:scale-[1.02] transition-all duration-200"
+            >
               <AddBotCard />
-            </>
-          )}
+            </div>
+          </div>
         </div>
       </main>
     </div>
