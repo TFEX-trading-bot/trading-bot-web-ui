@@ -10,12 +10,12 @@ export default function Markets() {
       <div className="max-w-7xl mx-auto px-6 sm:px-6 lg:px-8">
         <div className="grid md:grid-cols-2 gap-16 items-center">
           
-          {/* Left Content */}
+          {/* ส่วนเนื้อหาฝั่งซ้าย (Left Content) */}
           <div className="space-y-10">
             <div className="space-y-4">
               <h2 className="text-4xl md:text-5xl font-black text-slate-900 leading-tight tracking-tight">
                 ครอบคลุมตลาดหลัก<br />
-                <span className="text-[#6A0DAD]">ของนักลงทุนไทย</span>
+                <span className="text-[#6A0DAD]">ของทักลงทุนไทย</span>
               </h2>
               <p className="text-slate-500 text-lg font-medium">
                 เข้าถึงโอกาสในการทำกำไรในตลาดที่มีสภาพคล่องสูงที่สุด
@@ -23,7 +23,7 @@ export default function Markets() {
             </div>
 
             <div className="space-y-8">
-              {/* SET50 Index */}
+              {/* รายละเอียดตลาด SET50 Index */}
               <div className="flex gap-5 items-start group">
                 <div className="mt-1 p-1 bg-purple-50 rounded-lg group-hover:bg-purple-100 transition-colors">
                   <CheckCircle2 className="text-[#6A0DAD] w-6 h-6" />
@@ -37,7 +37,7 @@ export default function Markets() {
                 </div>
               </div>
 
-              {/* TFEX */}
+              {/* รายละเอียดตลาด TFEX */}
               <div className="flex gap-5 items-start group">
                 <div className="mt-1 p-1 bg-amber-50 rounded-lg group-hover:bg-amber-100 transition-colors">
                   <CheckCircle2 className="text-amber-500 w-6 h-6" />
@@ -54,23 +54,24 @@ export default function Markets() {
               </div>
             </div>
 
+            {/* ปุ่มสำหรับดูสถิติ (CTA Button) */}
             <div className="pt-4">
               <a
                 href="#"
                 className="inline-flex items-center gap-2 px-6 py-3 bg-purple-50 text-[#6A0DAD] font-black rounded-2xl hover:bg-[#6A0DAD] hover:text-white transition-all duration-300 shadow-sm"
               >
-                ดูสถิติผลการเทรดล่าสุด <ArrowRight className="w-4 h-4" />
+                View Latest Trading Stats <ArrowRight className="w-4 h-4" />
               </a>
             </div>
           </div>
 
-          {/* Right Decoration (Mock Chart) */}
+          {/* ส่วนกราฟิกจำลองฝั่งขวา (Right Decoration - Mock Chart) */}
           <div className="relative">
-            {/* Decorative elements */}
+            {/* องค์ประกอบตกแต่งพื้นหลัง (Blur Circles) */}
             <div className="absolute -top-12 -left-12 w-64 h-64 bg-purple-100/40 rounded-full blur-[80px] z-0"></div>
             <div className="absolute -bottom-12 -right-12 w-64 h-64 bg-blue-100/40 rounded-full blur-[80px] z-0"></div>
 
-            {/* Mock Chart Window */}
+            {/* หน้าต่างจำลองกราฟ (Mock Chart Window) */}
             <div className="bg-white rounded-[32px] p-8 shadow-[0_20px_60px_rgba(106,13,173,0.12)] border border-slate-100 relative z-10 transition-transform hover:scale-[1.02] duration-500">
               <div className="flex justify-between items-center mb-8">
                 <div className="flex items-center gap-2">
@@ -83,7 +84,7 @@ export default function Markets() {
                 </div>
               </div>
 
-              {/* Chart bars - ปรับสีให้ดูทันสมัย */}
+              {/* แท่งกราฟจำลอง (Mock Chart Bars) */}
               <div className="flex items-end justify-between h-56 gap-2 mb-8">
                 <div className="w-full bg-rose-100 rounded-t-lg h-[40%] transition-all duration-1000"></div>
                 <div className="w-full bg-rose-200 rounded-t-lg h-[30%]"></div>
@@ -95,7 +96,7 @@ export default function Markets() {
                 <div className="w-full bg-emerald-400/60 rounded-t-lg h-[80%]"></div>
               </div>
 
-              {/* Info panel */}
+              {/* แผงข้อมูลสถานะการเทรด (Info Panel) */}
               <div className="grid grid-cols-2 gap-4 bg-slate-50 p-5 rounded-2xl border border-slate-100">
                 <div className="space-y-1">
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</p>

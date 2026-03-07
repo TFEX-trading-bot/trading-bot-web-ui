@@ -9,7 +9,7 @@ import DashboardHeader from "@/components/Header";
 import BotDisplayCard from '@/components/BotDisplayCard';
 import AddBotCard from '@/components/AddBotCard';
 
-const API_URL = "https://trading-bot-api-sigma.vercel.app";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://trading-bot-api-sigma.vercel.app";
 
 export default function MyBotPage() {
   const router = useRouter();

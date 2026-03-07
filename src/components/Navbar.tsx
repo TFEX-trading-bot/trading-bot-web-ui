@@ -8,9 +8,11 @@ interface NavbarProps {
 }
 
 export default function Navbar({ onOpenAuth }: NavbarProps) {
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  // --- ส่วนที่ 1: การจัดการสถานะ (State) ---
+  const [isScrolled, setIsScrolled] = useState(false); // เช็คว่ามีการ Scroll หน้าจอหรือไม่
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // ควบคุมการเปิด/ปิดเมนูบนมือถือ
 
+  // --- ส่วนที่ 2: Effect สำหรับตรวจจับการ Scroll ---
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
@@ -19,18 +21,18 @@ export default function Navbar({ onOpenAuth }: NavbarProps) {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // ข้อมูลรายการเมนู
   const navLinks = [
-    { name: "จุดเด่นระบบ", href: "#features" },
-    { name: "ตลาดที่รองรับ", href: "#market" },
-    { name: "ผลตอบแทน", href: "#performance" },
-    { name: "แพ็กเกจ", href: "#pricing" },
+    { name: "Features", href: "#features" },
+    { name: "Markets", href: "#market" },
+    { name: "Performance", href: "#performance" },
+    { name: "Pricing", href: "#pricing" },
   ];
 
   return (
     <nav
       className={`fixed w-full z-50 transition-all duration-500 ${
         isScrolled 
-          // ปรับพื้นหลังเมื่อ Scroll ให้เป็นม่วงอ่อนโปร่งแสง ตัดกับพื้นหลังขาว
           ? "bg-purple-80/80 backdrop-blur-md shadow-[0_4px_20px_rgba(106,13,173,0.1)] border-b border-purple-100 py-2" 
           : "bg-transparent py-4"
       }`}
@@ -38,7 +40,7 @@ export default function Navbar({ onOpenAuth }: NavbarProps) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           
-          {/* Logo - ใช้สีเข้ม Slate-900 เพื่อให้ไม่กลืน */}
+          {/* ส่วนของ Logo */}
           <div
             className="flex items-center space-x-3 cursor-pointer group"
             onClick={() => window.scrollTo(0, 0)}
@@ -51,7 +53,7 @@ export default function Navbar({ onOpenAuth }: NavbarProps) {
             </span>
           </div>
 
-          {/* Desktop Menu - ใช้สี Slate-600 เพื่อความชัดเจน */}
+          {/* Desktop Menu - แสดงผลบนหน้าจอขนาดใหญ่ */}
           <div className="hidden lg:flex items-center space-x-10">
             {navLinks.map((link) => (
               <a
@@ -65,23 +67,23 @@ export default function Navbar({ onOpenAuth }: NavbarProps) {
             ))}
           </div>
 
-          {/* Auth Buttons */}
+          {/* Auth Buttons - ปุ่มเข้าสู่ระบบและสมัครสมาชิกสำหรับ Desktop */}
           <div className="hidden lg:flex items-center space-x-6">
             <button
               onClick={() => onOpenAuth("login")}
               className="text-sm font-bold text-slate-700 hover:text-[#6A0DAD] transition-colors"
             >
-              เข้าสู่ระบบ
+              Log In
             </button>
             <button
               onClick={() => onOpenAuth("register")}
               className="bg-[#6A0DAD] hover:bg-[#5D0CA1] text-white px-7 py-2.5 rounded-2xl text-sm font-bold transition-all transform hover:scale-105 shadow-xl shadow-purple-200 active:scale-95"
             >
-              เริ่มต้นลงทุน
+              Start Investing
             </button>
           </div>
 
-          {/* Mobile Menu Button - ปรับสีให้เข้มขึ้น */}
+          {/* Mobile Menu Button - ปุ่มเปิดเมนูสำหรับหน้าจอมือถือ */}
           <div className="lg:hidden flex items-center">
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -93,7 +95,7 @@ export default function Navbar({ onOpenAuth }: NavbarProps) {
         </div>
       </div>
 
-      {/* Mobile Menu Panel - ปรับเป็นพื้นหลังขาวม่วงอ่อน */}
+      {/* Mobile Menu Panel - แผงเมนูที่จะแสดงเมื่อกดปุ่มบนมือถือ */}
       {isMobileMenuOpen && (
         <div className="lg:hidden bg-white/95 backdrop-blur-xl border-t border-purple-100 absolute w-full left-0 z-40 shadow-2xl animate-in slide-in-from-top duration-300">
           <div className="px-6 pt-4 pb-8 space-y-2">
@@ -112,13 +114,13 @@ export default function Navbar({ onOpenAuth }: NavbarProps) {
                 onClick={() => { onOpenAuth("login"); setIsMobileMenuOpen(false); }}
                 className="w-full py-4 text-slate-700 font-bold border-2 border-purple-100 rounded-2xl hover:bg-purple-50 transition-colors"
               >
-                เข้าสู่ระบบ
+                Log In
               </button>
               <button
                 onClick={() => { onOpenAuth("register"); setIsMobileMenuOpen(false); }}
                 className="w-full py-4 bg-[#6A0DAD] text-white rounded-2xl font-bold shadow-lg shadow-purple-200"
               >
-                สมัครสมาชิก
+                Sign Up
               </button>
             </div>
           </div>
