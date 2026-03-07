@@ -1,8 +1,8 @@
 "use client";
 
 import React from 'react';
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 import { Bot, ShoppingBag, CircleDollarSign, ChevronDown, LayoutDashboard } from 'lucide-react';
 
 const Sidebar = () => {
@@ -10,27 +10,24 @@ const Sidebar = () => {
   const isActive = (path: string) => pathname === path;
 
   return (
-    // เพิ่ม flex-shrink-0 เพื่อป้องกันไม่ให้ Sidebar โดนบีบ และใช้ w-[280px] ให้เป๊ะตามดีไซน์
     <aside className="flex flex-col h-screen w-[280px] flex-shrink-0 bg-gradient-to-br from-[#5D0CA1] via-[#4B0082] to-[#360062] text-white p-6 shadow-2xl select-none relative overflow-hidden z-50">
       
       {/* Background Decor */}
       <div className="absolute top-[-10%] left-[-20%] w-64 h-64 bg-white/5 rounded-full blur-3xl" />
       
-      {/* Logo Section - ปรับระยะ Font ให้เท่าดีไซน์ */}
-      <Link href="/">
-        <div className="flex items-center space-x-4 mb-10 mt-4 px-2 cursor-pointer transition-all duration-300 active:scale-95 group">
-          <div className="relative">
-            <div className="absolute -inset-1 bg-gradient-to-r from-purple-400 to-pink-400 rounded-2xl blur opacity-20 group-hover:opacity-50 transition duration-300"></div>
-            <div className="relative bg-white/10 p-2 rounded-2xl backdrop-blur-xl border border-white/20 shadow-xl">
-              <Bot className="text-white w-6 h-6" />
-            </div>
-          </div>
-          <div className="flex flex-col">
-            <span className="text-lg font-black tracking-tight leading-none uppercase">Trading Bot</span>
-            <span className="text-[10px] font-bold tracking-[0.3em] text-white/40 mt-1 uppercase">System</span>
+      {/* ✅ Logo Section - นำ Link ออกแล้ว */}
+      <div className="flex items-center space-x-4 mb-10 mt-4 px-2 select-none group">
+        <div className="relative">
+          <div className="absolute -inset-1 bg-gradient-to-r from-purple-400 to-pink-400 rounded-2xl blur opacity-20 transition duration-300"></div>
+          <div className="relative bg-white/10 p-2 rounded-2xl backdrop-blur-xl border border-white/20 shadow-xl">
+            <Bot className="text-white w-6 h-6" />
           </div>
         </div>
-      </Link>
+        <div className="flex flex-col">
+          <span className="text-lg font-black tracking-tight leading-none uppercase">Trading Bot</span>
+          <span className="text-[10px] font-bold tracking-[0.3em] text-white/40 mt-1 uppercase">System</span>
+        </div>
+      </div>
 
       <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-white/10 to-transparent mb-8" />
 
