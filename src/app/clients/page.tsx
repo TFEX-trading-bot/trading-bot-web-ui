@@ -1,13 +1,13 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
-import { User, Mail, Calendar, Shield, Loader2, AlertCircle } from "lucide-react";
+import { User, Mail, Calendar, Loader2, AlertCircle } from "lucide-react";
 import DashboardHeader from "@/components/Header";
 import AdminSidebar from "@/components/AdminSidebar";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 
-const API_URL = "https://trading-bot-api-sigma.vercel.app";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://trading-bot-api-sigma.vercel.app";
 
 export default function AdminClientPage() {
   const router = useRouter();
@@ -29,21 +29,25 @@ export default function AdminClientPage() {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      // ✅ แก้ไข: กรองข้อมูลเพื่อเอาเฉพาะคนที่มี role เป็น 'user' เท่านั้น
-      // วิธีนี้จะทำให้ ID: 6 (Admin) หายไปจากหน้าจอการจัดการลูกค้านี้
+      // ✅ 1. กรองเฉพาะ Role 'user'
       const onlyUsers = response.data.filter(
         (client: any) => client.role?.toLowerCase() === "user"
       );
 
-      setClients(onlyUsers);
+      // ✅ 2. เรียงลำดับ: คนที่สร้างล่าสุด (Newest) อยู่บน, คนที่สร้างก่อน (Oldest) อยู่ล่างสุด
+      const sortedUsers = onlyUsers.sort((a: any, b: any) => {
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+
+      setClients(sortedUsers);
       
     } catch (err: any) {
       console.error("Fetch Clients Error:", err);
       if (err.response?.status === 403 || err.response?.status === 401) {
-        alert("สิทธิ์ไม่เพียงพอ: บัญชีของคุณไม่ใช่ Admin");
+        alert("Unauthorized: Account is not Admin");
         router.push("/my-bot");
       } else {
-        setError("ไม่สามารถโหลดข้อมูลได้ กรุณาลองใหม่อีกครั้ง");
+        setError("Failed to load data. Please try again.");
       }
     } finally {
       setLoading(false);
@@ -58,7 +62,7 @@ export default function AdminClientPage() {
     return (
       <div className="h-screen w-full flex flex-col items-center justify-center bg-white">
         <Loader2 className="animate-spin text-[#8200DB] mb-4" size={40} />
-        <p className="text-slate-500 font-bold">กำลังโหลดรายชื่อลูกค้า...</p>
+        <p className="text-slate-500 font-bold tracking-tight">Loading client database...</p>
       </div>
     );
   }
@@ -72,63 +76,59 @@ export default function AdminClientPage() {
       <main className="flex-1 flex flex-col min-w-0 bg-white text-black">
         <DashboardHeader title="Clients" />
 
-        <div className="p-10 max-w-[1600px] w-full mx-auto overflow-y-auto">
+        <div className="p-6 lg:p-10 max-w-[1800px] w-full mx-auto overflow-y-auto font-sans">
           {error ? (
             <div className="flex flex-col items-center py-20 text-red-500">
               <AlertCircle size={48} className="mb-4" />
-              <p className="font-bold">{error}</p>
+              <p className="font-bold tracking-tight">{error}</p>
             </div>
           ) : clients.length === 0 ? (
-            <div className="text-center py-20 text-slate-400 font-bold">ไม่พบข้อมูลลูกค้าในระบบ</div>
+            <div className="text-center py-20 text-slate-400 font-black uppercase tracking-[0.2em]">
+              No clients found in the system
+            </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
+            /* Layout 4 คอลัมน์ (xl:grid-cols-4) */
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {clients.map((client) => (
                 <div 
                   key={client.id} 
-                  className="group relative rounded-[2.5rem] p-8 border-2 bg-[#F3E8FF] border-[#E9D5FF] transition-all duration-500 hover:shadow-2xl hover:shadow-purple-200/50"
+                  className="group relative rounded-[2rem] p-6 border-2 bg-[#F3E8FF] border-[#E9D5FF] transition-all duration-300 hover:shadow-xl hover:shadow-purple-100/50"
                 >
-                  <div className="flex items-center gap-6 mb-8">
-                    <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center border-4 border-[#A855F7] text-[#A855F7] shadow-sm flex-shrink-0">
-                      <User size={32} strokeWidth={2.5} />
+                  {/* Role Tag มุมขวาบน */}
+                  <div className="absolute top-6 right-6">
+                    <div className="px-3 py-1 text-white rounded-full text-[9px] font-black uppercase tracking-widest bg-[#6A0DAD] shadow-sm">
+                      {client.role}
+                    </div>
+                  </div>
+
+                  {/* Header: Avatar + Info */}
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center border-2 border-[#A855F7] text-[#A855F7] shadow-sm flex-shrink-0">
+                      <User size={24} strokeWidth={2.5} />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#A855F7]">
+                      <p className="text-[9px] mb-2 font-black uppercase text-[#A855F7] opacity-70 tracking-tighter">
                         ID : {client.id}
                       </p>
-                      <h3 className="text-xl font-black text-[#6A0DAD] truncate tracking-tight">
+                      <h3 className="text-lg font-black text-[#6A0DAD] truncate pr-10 tracking-tight leading-none">
                         {client.name || client.username}
                       </h3>
                     </div>
                   </div>
 
-                  <div className="mb-8 px-2">
-                    <p className="text-sm text-slate-500 font-bold flex items-center gap-2 truncate">
-                      <Mail size={16} className="text-[#A855F7]" /> {client.email}
+                  {/* Contact Info */}
+                  <div className="mb-6 px-1">
+                    <p className="text-xs text-slate-500 font-bold flex items-center gap-2 truncate opacity-80">
+                      <Mail size={14} className="text-[#A855F7]" /> {client.email}
                     </p>
                   </div>
 
-                  <div className="pt-6 border-t border-white/50 space-y-4">
-                    <div className="flex justify-between items-center">
-                      <div className="space-y-1">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
-                          <Shield size={10} /> Role
-                        </p>
-                        <div className="inline-block px-3 py-1 text-white rounded-full text-[10px] font-black uppercase tracking-wider bg-[#6A0DAD]">
-                          {client.role}
-                        </div>
-                      </div>
-                      <div className="text-right space-y-1">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</p>
-                        <div className="flex items-center justify-end gap-1.5">
-                          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                          <span className="text-sm font-black text-emerald-600">Active</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 text-[11px] font-bold text-[#A855F7] bg-white/50 p-3 rounded-2xl border border-white/80">
-                      <Calendar size={14} />
-                      Joined: {new Date(client.createdAt).toLocaleDateString('th-TH')}
+                  {/* Footer: Date Joined */}
+                  <div className="pt-4 border-t border-white/50">
+                    <div className="flex items-center gap-2 text-[10px] font-bold text-[#A855F7] bg-white/40 p-2.5 rounded-xl border border-white/80">
+                      <Calendar size={12} />
+                      <span className="opacity-70 font-black uppercase text-[9px] tracking-tighter">Joined:</span> 
+                      {new Date(client.createdAt).toLocaleDateString('en-US')}
                     </div>
                   </div>
                 </div>
