@@ -45,7 +45,7 @@ export default function AdminClientPage() {
       console.error("Fetch Clients Error:", err);
       if (err.response?.status === 403 || err.response?.status === 401) {
         alert("Unauthorized: Account is not Admin");
-        router.push("/my-bot");
+        router.push("/");
       } else {
         setError("Failed to load data. Please try again.");
       }
