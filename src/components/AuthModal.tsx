@@ -47,7 +47,7 @@ export default function AuthModal({ isOpen, onClose, mode, setMode }: AuthModalP
     return () => { document.body.style.overflow = "auto"; };
   }, [isOpen]);
 
-  // --- ฟังก์ชัน Login ---
+  // --- ✅ ฟังก์ชัน Login (เพิ่มการเช็ค Role) ---
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -55,12 +55,27 @@ export default function AuthModal({ isOpen, onClose, mode, setMode }: AuthModalP
     try {
       const res = await axios.post(`${API_URL}/auth/login`, { email, password });
       
+      // 1. จัดเก็บข้อมูลพื้นฐานลง localStorage
       localStorage.setItem("token", res.data.access_token);
       localStorage.setItem("username", res.data.username || "User");
       localStorage.setItem("user_id", String(res.data.user_id || res.data.user?.id));
       
+      // 2. ✅ จัดเก็บ Role (ตรวจสอบว่า API ส่งค่า role มาใน res.data.role)
+      // ถ้าไม่มีการส่งมา ให้ Default เป็น 'user'
+      const userRole = (res.data.role || "user").toLowerCase();
+      localStorage.setItem("role", userRole);
+      
       onClose();
-      window.location.href = "/my-bot"; 
+
+      // 3. ✅ เลือกหน้าปลายทางตามสิทธิ์ (Role-Based Redirection)
+      if (userRole === "admin") {
+        // ถ้าเป็น Admin ให้ไปหน้าจัดการลูกค้า
+        window.location.href = "/clients"; 
+      } else {
+        // ถ้าเป็น User ทั่วไป ให้ไปหน้าบอทของฉัน
+        window.location.href = "/my-bot"; 
+      }
+      
     } catch (err: any) {
       setError("Invalid email or password.");
     } finally {
@@ -68,7 +83,7 @@ export default function AuthModal({ isOpen, onClose, mode, setMode }: AuthModalP
     }
   };
 
-  // --- ฟังก์ชัน Register (ชื่อซ้ำได้ แต่อีเมลห้ามซ้ำ) ---
+  // --- ฟังก์ชัน Register ---
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -115,12 +130,18 @@ export default function AuthModal({ isOpen, onClose, mode, setMode }: AuthModalP
           <X className="w-6 h-6" />
         </button>
 
-        <h2 className="text-3xl font-black mb-2 tracking-tight">{mode === "login" ? "Welcome Back" : "Create Account"}</h2>
+        <h2 className="text-3xl font-black mb-2 tracking-tight">
+          {mode === "login" ? "Welcome Back" : "Create Account"}
+        </h2>
         <p className="text-slate-500 mb-8 text-sm font-medium leading-relaxed">
           {mode === "login" ? "Log in to manage your portfolio" : "Start trading for free today"}
         </p>
 
-        {error && <div className="bg-red-50 border border-red-100 text-red-500 text-xs p-3 rounded-xl mb-6 text-center font-bold italic">{error}</div>}
+        {error && (
+          <div className="bg-red-50 border border-red-100 text-red-500 text-xs p-3 rounded-xl mb-6 text-center font-bold italic">
+            {error}
+          </div>
+        )}
 
         <form className="space-y-5" onSubmit={mode === "login" ? handleLogin : handleRegister}>
           {mode === "register" && (
@@ -143,7 +164,6 @@ export default function AuthModal({ isOpen, onClose, mode, setMode }: AuthModalP
             />
           </div>
 
-          {/* --- ช่อง Password (ไม่มีไอคอนรูปตา) --- */}
           <div>
             <label className="block text-sm font-bold text-slate-800 mb-1.5 ml-1">Password</label>
             <input
@@ -168,7 +188,6 @@ export default function AuthModal({ isOpen, onClose, mode, setMode }: AuthModalP
             </div>
           )}
 
-          {/* --- ช่อง Confirm Password (ไม่มีไอคอนรูปตา) --- */}
           {mode === "register" && (
             <div>
               <label className="block text-sm font-bold text-slate-800 mb-1.5 ml-1">Confirm Password</label>
