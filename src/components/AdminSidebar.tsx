@@ -1,8 +1,8 @@
 "use client";
 
 import React from 'react';
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 import { User, Terminal, CircleDollarSign, Bot } from 'lucide-react';
 
 const AdminSidebar = () => {
@@ -18,8 +18,8 @@ const AdminSidebar = () => {
   return (
     <aside className="flex flex-col h-screen w-[280px] flex-shrink-0 bg-gradient-to-br from-[#5D0CA1] via-[#4B0082] to-[#360062] text-white p-6 shadow-2xl relative z-50 overflow-hidden">
       
-      {/* Logo Section ตามดีไซน์รูปภาพ */}
-      <div className="flex items-center space-x-4 mb-12 mt-4 px-2">
+      {/* ✅ Logo Section - เอา Link ออกแล้ว */}
+      <div className="flex items-center space-x-4 mb-12 mt-4 px-2 select-none">
         <div className="bg-white/10 p-2.5 rounded-2xl backdrop-blur-xl border border-white/20 shadow-xl">
           <Bot className="text-white w-7 h-7" />
         </div>
@@ -36,7 +36,7 @@ const AdminSidebar = () => {
       {/* Modern Separator */}
       <div className="h-[1px] w-full bg-gradient-to-r from-transparent via-white/10 to-transparent mb-10" />
 
-      {/* Navigation Links ตามเมนูในรูป */}
+      {/* Navigation Links */}
       <nav className="space-y-4 flex-1">
         {menuItems.map((item) => {
           const active = isActive(item.path);

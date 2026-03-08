@@ -7,7 +7,7 @@ import AdminSidebar from "@/components/AdminSidebar";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 
-const API_URL = "https://trading-bot-api-sigma.vercel.app";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://trading-bot-api-sigma.vercel.app";
 
 export default function AdminAllBotsPage() {
   const router = useRouter();
@@ -19,17 +19,35 @@ export default function AdminAllBotsPage() {
     const userRole = localStorage.getItem("role");
 
     if (!token || userRole?.toLowerCase() !== "admin") {
-      alert("สิทธิ์ไม่เพียงพอ: เฉพาะผู้ดูแลระบบเท่านั้น");
-      router.push("/my-bot");
+      alert("Unauthorized: Admins only");
+      router.push("/");
       return;
     }
 
     try {
-      const response = await axios.get(`${API_URL}/bots`, {
+      const botResponse = await axios.get(`${API_URL}/bots`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      // ข้อมูลที่ได้จะเป็น Array ของ Bot object
-      setAllBots(response.data);
+      
+      const bots = botResponse.data;
+
+      const botsWithUsernames = await Promise.all(
+        bots.map(async (bot: any) => {
+          try {
+            const userResponse = await axios.get(`${API_URL}/users/${bot.userId}`, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            return { 
+              ...bot, 
+              ownerName: userResponse.data.username || userResponse.data.name || `User ${bot.userId}` 
+            };
+          } catch (err) {
+            return { ...bot, ownerName: `Unknown (ID: ${bot.userId})` };
+          }
+        })
+      );
+
+      setAllBots(botsWithUsernames);
     } catch (err: any) {
       console.error("Fetch All Bots Error:", err);
       if (err.response?.status === 401 || err.response?.status === 403) {
@@ -48,7 +66,7 @@ export default function AdminAllBotsPage() {
     return (
       <div className="h-screen w-full flex flex-col items-center justify-center bg-white text-black">
         <Loader2 className="animate-spin text-[#8200DB] mb-4" size={40} />
-        <p className="font-bold">กำลังโหลดข้อมูลบอทระบบ...</p>
+        <p className="font-bold">Loading system bots...</p>
       </div>
     );
   }
@@ -59,65 +77,64 @@ export default function AdminAllBotsPage() {
         <AdminSidebar />
       </aside>
 
-      <main className="flex-1 flex flex-col min-w-0 bg-white">
+      <main className="flex-1 flex flex-col min-w-0 bg-white text-black">
         <DashboardHeader title="All Bots" />
 
-        <div className="p-10 max-w-[1600px] w-full mx-auto overflow-y-auto text-black">
+        {/* ✅ ปรับ max-w เป็น 1800px เพื่อให้รองรับ 4 คอลัมน์ได้กว้างขึ้น */}
+        <div className="p-6 lg:p-10 max-w-[1800px] w-full mx-auto overflow-y-auto">
           {allBots.length === 0 ? (
-            <div className="text-center py-20 text-slate-400 font-bold italic">-- ไม่พบข้อมูลบอทในระบบ --</div>
+            <div className="text-center py-20 text-slate-400 font-bold italic tracking-widest">-- No bots found in the system --</div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
+            /* ✅ แก้ไขจุดนี้: ปรับเป็น xl:grid-cols-4 เพื่อให้แสดง 4 คอลัมน์ */
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {allBots.map((bot) => (
-                <div key={bot.id} className="bg-[#F3E8FF] rounded-[2.5rem] p-8 border-2 border-[#E9D5FF] relative transition-all duration-500 hover:shadow-2xl hover:shadow-purple-200/50">
+                <div key={bot.id} className="bg-[#F3E8FF] rounded-[2rem] p-6 border-2 border-[#E9D5FF] relative transition-all duration-300 hover:shadow-xl hover:shadow-purple-100/50">
                   
                   {/* Header: ID & Status */}
-                  <div className="flex justify-between items-center mb-6">
+                  <div className="flex justify-between items-center mb-5">
                     <div className="flex items-center gap-2">
-                      <div className="p-2 bg-white rounded-xl text-[#A855F7] shadow-sm">
-                        <Cpu size={18} />
+                      <div className="p-1.5 bg-white rounded-lg text-[#A855F7] shadow-sm border border-purple-50">
+                        <Cpu size={14} />
                       </div>
-                      <p className="text-[10px] font-black text-[#A855F7] uppercase tracking-[0.2em]">ID : {bot.id}</p>
+                      <p className="text-[9px] font-black text-[#A855F7] uppercase tracking-tighter">ID : {bot.id}</p>
                     </div>
-                    {/* แสดงสถานะตาม API: RUNNING หรือ PAUSE */}
-                    <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/50 border ${bot.status === 'RUNNING' ? 'border-emerald-100 text-emerald-600' : 'border-rose-100 text-rose-500'}`}>
-                      <div className={`w-1.5 h-1.5 rounded-full ${bot.status === 'RUNNING' ? 'bg-emerald-500 animate-pulse' : 'bg-rose-400'}`} />
-                      <span className="text-[10px] font-black uppercase tracking-wider">{bot.status}</span>
+                    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/60 border ${bot.status === 'RUNNING' ? 'border-emerald-100 text-emerald-600' : 'border-rose-100 text-rose-500'}`}>
+                      <div className={`w-1 h-1 rounded-full ${bot.status === 'RUNNING' ? 'bg-emerald-500 animate-pulse' : 'bg-rose-400'}`} />
+                      <span className="text-[8px] font-black uppercase tracking-tighter">{bot.status}</span>
                     </div>
                   </div>
 
                   {/* Bot Main Info */}
-                  <div className="flex items-center gap-6 mb-8">
-                    <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center border-4 border-[#A855F7] text-[#A855F7] shadow-sm flex-shrink-0">
-                      <Bot size={32} strokeWidth={2.5} />
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center border-2 border-[#A855F7] text-[#A855F7] shadow-sm flex-shrink-0">
+                      <Bot size={24} strokeWidth={2.5} />
                     </div>
                     <div className="min-w-0">
-                      <h3 className="text-xl font-black text-[#6A0DAD] truncate tracking-tight">
-                        {/* แสดงชื่อหุ้น/สัญลักษณ์ที่บอทเทรด */}
+                      <h3 className="text-lg font-black text-[#6A0DAD] truncate tracking-tight leading-none mb-1.5">
                         {bot.stock} 
                       </h3>
-                      <p className="text-[10px] font-bold text-[#A855F7] uppercase tracking-[0.2em] mt-1 flex items-center gap-1">
-                        <User size={12} /> Owner ID: {bot.userId} 
+                      <p className="text-[9px] font-bold text-[#A855F7] uppercase tracking-tighter flex items-center gap-1 opacity-80">
+                        Owner : {bot.ownerName} 
                       </p>
                     </div>
                   </div>
 
-                  {/* Data Section: แสดง Bot Type ให้ตรงกับ Database */}
-                  <div className="pt-6 border-t border-white/50 space-y-5">
+                  {/* Data Section */}
+                  <div className="pt-4 border-t border-white/50 space-y-4">
                     <div className="flex justify-between items-end">
-                      <div className="space-y-1">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
-                          <Zap size={10} /> Bot Strategy Type
+                      <div className="space-y-0.5">
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                          <Zap size={8} /> Bot Type
                         </p>
-                        {/* ✅ ดึงค่า botType จาก API (เช่น POLICY หรือ AI) */}
-                        <p className="text-xl font-black text-[#6A0DAD] tracking-tight">
+                        <p className="text-sm font-black text-[#6A0DAD] tracking-tight">
                           {bot.botType} 
                         </p>
                       </div>
-                      <div className="text-right space-y-1">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center justify-end gap-1">
-                          <ShieldCheck size={10} /> Visibility
+                      <div className="text-right space-y-0.5">
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest flex items-center justify-end gap-1">
+                          <ShieldCheck size={8} /> Visibility
                         </p>
-                        <div className={`inline-block px-3 py-1 text-white rounded-full text-[10px] font-black uppercase tracking-wider shadow-sm ${bot.public ? 'bg-emerald-500' : 'bg-slate-400'}`}>
+                        <div className={`inline-block px-2.5 py-1 text-white rounded-full text-[8px] font-black uppercase tracking-tighter shadow-sm ${bot.public ? 'bg-emerald-500' : 'bg-slate-400'}`}>
                           {bot.public ? 'Public' : 'Private'}
                         </div>
                       </div>

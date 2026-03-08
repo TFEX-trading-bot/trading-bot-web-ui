@@ -5,6 +5,8 @@ import axios from "axios";
 import { Users, Copy, Star, Zap, Loader2, SearchX, TrendingUp } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import DashboardHeader from "@/components/Header"; 
+// ✅ นำเข้า useRouter สำหรับการเปลี่ยนหน้า
+import { useRouter } from "next/navigation";
 
 const API_URL = "https://trading-bot-api-sigma.vercel.app";
 
@@ -18,37 +20,31 @@ const cardColors = [
 export default function MarketPlacePage() {
   const [bots, setBots] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // ✅ เรียกใช้งาน router
+  const router = useRouter();
 
   const fetchMarketBots = useCallback(async () => {
     setIsLoading(true);
     try {
-      // ✅ ดึงข้อมูลบอท (Backend Include orderHistories มาให้แล้วตาม bots.service.ts)
       const botRes = await axios.get(`${API_URL}/bots`);
       
-      // 1. กรองเฉพาะบอท Public และประเภท POLICY (ตาม JSON: botType และ public)
       const filteredBots = botRes.data.filter((bot: any) => 
         bot.public === true && bot.botType === "POLICY"
       );
 
-      // 2. ดึงรายละเอียด User และคำนวณสถิติจากประวัติการเทรด
       const botsWithDetails = await Promise.all(
         filteredBots.map(async (bot: any, index: number) => {
           try {
-            // ✅ ดึงข้อมูล User จริงจาก API
             const userRes = await axios.get(`${API_URL}/users/${bot.userId}`);
             
-            // --- 📊 ส่วนคำนวณ Win Rate จากประวัติการเทรดจริง ---
             const history = bot.orderHistories || [];
             const totalOrders = history.length;
             
-            // นับเฉพาะไม้ที่มีกำไร (totalProfit >= 0) ตาม Entity: order-history.entity.ts
             const winOrders = history.filter((order: any) => {
-              // ดึงค่า totalProfit และแปลงเป็น Number เพราะ Decimal ใน DB มักส่งมาเป็น String
               const profit = Number(order.totalProfit || 0);
               return profit >= 0; 
             }).length;
             
-            // คำนวณเป็น %
             const winRateValue = totalOrders > 0 
               ? ((winOrders / totalOrders) * 100).toFixed(1) 
               : "0.0";
@@ -56,7 +52,6 @@ export default function MarketPlacePage() {
             return {
               ...bot,
               displayColor: cardColors[index % cardColors.length],
-              // ✅ นำชื่อจาก API มาเก็บไว้ใน userName
               userName: userRes.data.username || userRes.data.name || "System Trader",
               calculatedWinRate: winRateValue,
               totalTrades: totalOrders
@@ -117,13 +112,11 @@ export default function MarketPlacePage() {
                 >
                   <div className={`absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br ${bot.displayColor} opacity-5 rounded-full`} />
                   
-                  {/* Header: User Profile */}
                   <div className="mb-8 flex justify-between items-start relative z-10">
                     <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100 group-hover:bg-white transition-colors">
                       <div className={`w-6 h-6 rounded-lg bg-gradient-to-tr ${bot.displayColor} flex items-center justify-center text-[10px] text-white font-black`}>
                         {bot.userName.charAt(0).toUpperCase()}
                       </div>
-                      {/* ✅ ดึงชื่อจากตัวแปร userName ที่เรา Fetch มาได้จริง */}
                       <span className="text-[10px] font-black uppercase text-slate-600 tracking-wider">
                         {bot.userName}
                       </span>
@@ -133,7 +126,6 @@ export default function MarketPlacePage() {
                     </div>
                   </div>
 
-                  {/* Body: Bot Identity */}
                   <div className="mb-8 relative z-10">
                     <h3 className="text-2xl font-black tracking-tight leading-none">
                       {bot.stock} 
@@ -148,7 +140,6 @@ export default function MarketPlacePage() {
                     </div>
                   </div>
 
-                  {/* Stats Section */}
                   <div className="grid grid-cols-2 gap-4 pt-6 border-t border-slate-50 relative z-10">
                     <div>
                       <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest mb-1">Total PnL</p>
@@ -160,7 +151,6 @@ export default function MarketPlacePage() {
                       <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest mb-1">Win Rate</p>
                       <div className="flex items-center justify-end gap-1 font-black text-xl text-slate-800">
                         <Star size={12} fill="#8B5CF6" className="text-[#8B5CF6]" />
-                        {/* ✅ แสดง Win Rate ที่คำนวณจริง */}
                         {bot.calculatedWinRate}%
                       </div>
                     </div>
@@ -169,7 +159,8 @@ export default function MarketPlacePage() {
                   {/* Hover Actions */}
                   <div className="absolute inset-0 bg-[#1E1B4B]/95 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all duration-500 flex flex-col items-center justify-center z-20 p-6">
                     <button 
-                      onClick={() => console.log("Copying ID:", bot.id)}
+                      // ✅ แก้ไข: เมื่อกดแล้วให้เปลี่ยนหน้าไปที่ create-copy-bot พร้อมส่ง id ไปทาง URL
+                      onClick={() => router.push(`/create-copy-bot/${bot.id}`)}
                       className="w-full bg-[#8B5CF6] text-white py-4 rounded-2xl font-black uppercase text-[11px] tracking-widest shadow-xl hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2 font-sans"
                     >
                       <Copy size={16} /> Copy Trade
