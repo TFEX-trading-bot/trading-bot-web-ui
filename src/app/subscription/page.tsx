@@ -162,7 +162,7 @@ export default function AdminSubscriptionPage() {
               <Menu size={24} />
             </button>
             <span className="ml-4 text-[24px] font-black bg-gradient-to-r from-[#7111B6] via-[#901CFA] to-[#5837F6] bg-clip-text text-transparent leading-normal tracking-tight pb-1">
-              Subscription
+              Subscription Plans
             </span>
           </div>
           <ProfileDropdown />
@@ -197,8 +197,9 @@ export default function AdminSubscriptionPage() {
                   </div>
 
                   <div className="flex items-baseline gap-1.5">
+                    <span className="text-2xl lg:text-3xl font-bold text-[#6A0DAD]">฿</span>
                     <span className="text-5xl font-black text-[#6A0DAD] tracking-tighter">
-                      ฿{Number(sub.price).toLocaleString()}
+                      {Number(sub.price).toLocaleString()}
                     </span>
                     <span className="text-lg font-bold text-[#A855F7] opacity-60">
                       /{sub.duration}d

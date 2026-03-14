@@ -1,13 +1,15 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar"; 
 import DashboardHeader from "@/components/Header"; 
+import ProfileDropdown from "@/components/ProfileDropdown";
 import { 
   Bot, TrendingUp, TrendingDown, Loader2, 
-  ShieldCheck, ChevronDown, Zap, Plus, Trash2 
+  ShieldCheck, ChevronDown, Zap, Plus, Trash2, Menu, ArrowLeft
 } from "lucide-react";
+import axios from "axios";
 
 // --- Configuration Constants ---
 const INDICATOR_OPTIONS = ["RSI", "SMA", "EMA", "MACD", "STOCH", "ATR", "BBANDS", "OBV", "CLOSE", "OPEN", "HIGH", "LOW", "ADX", "DZV", "VWAP", "VOLUME", "HIGHN", "LOWN", "KELTNER", "DONCHIAN", "CHOP", "CRSI", "SUPERTREND"];
@@ -27,8 +29,11 @@ interface BotData {
   };
 }
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://trading-bot-api-sigma.vercel.app";
+
 export default function BotDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const botId = params.id;
   
   const [activeTab, setActiveTab] = useState<'dashboard' | 'configuration'>('dashboard');
@@ -36,6 +41,7 @@ export default function BotDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isToggling, setIsToggling] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // --- Configuration States (รองรับการลบเลข 0 จนว่างเปล่า) ---
   const [riskPct, setRiskPct] = useState<number | string>(0);
@@ -50,9 +56,11 @@ export default function BotDetailPage() {
   const fetchBotData = useCallback(async () => {
     if (!botId) return;
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/bots/${botId}`);
-      if (!response.ok) throw new Error("Fetch failed");
-      const result = await response.json();
+      const token = localStorage.getItem("token");
+      const response = await axios.get(`${API_URL}/bots/${botId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const result = response.data;
       
       setData(result);
       setRiskPct(result?.policy?.risk?.risk_pct ?? 0);
@@ -148,13 +156,12 @@ export default function BotDetailPage() {
     };
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/bots/${botId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+      const token = localStorage.getItem("token");
+      const response = await axios.put(`${API_URL}/bots/${botId}`, payload, {
+        headers: { Authorization: `Bearer ${token}` }
       });
 
-      if (response.ok) { 
+      if (response.status === 200 || response.status === 204) { 
         alert("✅ อัปเดตกลยุทธ์เรียบร้อยแล้ว!"); 
         await fetchBotData(); // ดึงข้อมูลใหม่เพื่อ Re-map UI
       } else {
@@ -169,62 +176,106 @@ export default function BotDetailPage() {
     setIsToggling(true);
     const action = data.status === "RUNNING" ? "pause" : "resume";
     try {
-      await fetch(`http://localhost:8000/bot/${botId}/${action}`, { method: "POST" });
+      const token = localStorage.getItem("token");
+      await axios.post(`${API_URL}/bots/${botId}/${action}`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       await fetchBotData();
-    } catch (err) { alert("Error Port 8000"); }
+    } catch (err) { alert("❌ ทำรายการไม่สำเร็จ"); }
     finally { setIsToggling(false); }
   };
 
   if (isLoading) return <div className="h-screen bg-white flex items-center justify-center"><Loader2 className="animate-spin text-[#8B5CF6] w-12 h-12" /></div>;
 
   return (
-    <div className="flex min-h-screen bg-[#FDFCFE] font-sans text-slate-800">
-      <aside className="sticky top-0 h-screen hidden md:block z-40">
+    <div className="flex min-h-screen bg-[#FDFCFE] font-sans text-slate-800 relative">
+      {/* Backdrop สีดำโปร่งแสงสำหรับมือถือ */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 md:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar (Hamburger Menu Drawer สำหรับมือถือ) */}
+      <aside className={`
+        fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 ease-in-out
+        md:relative md:translate-x-0
+        ${isSidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"}
+      `}>
         <Sidebar />
       </aside>
 
       <main className="flex-1 flex flex-col min-w-0 bg-white">
-        <DashboardHeader title={`Bot Details`} />
+        {/* แถบด้านบนสำหรับมือถือ พร้อมปุ่ม Hamburger Menu */}
+        <div className="md:hidden flex items-center justify-between p-4 bg-white border-b border-slate-100 sticky top-0 z-30">
+          <div className="flex items-center">
+            <button 
+              onClick={() => setIsSidebarOpen(true)} 
+              className="p-2 rounded-xl bg-purple-50 text-[#8200DB] hover:bg-purple-100 transition-colors"
+            >
+              <Menu size={24} />
+            </button>
+            <span className="ml-4 text-[24px] font-black bg-gradient-to-r from-[#7111B6] via-[#901CFA] to-[#5837F6] bg-clip-text text-transparent leading-normal tracking-tight pb-1">
+              Bot Details
+            </span>
+          </div>
+          <ProfileDropdown />
+        </div>
+
+        {/* ซ่อน Header ของ Desktop บนมือถือ */}
+        <div className="hidden md:block">
+          <DashboardHeader title={`Bot Details`} />
+        </div>
 
         <div className="flex-grow p-8 lg:p-12 max-w-[1400px] w-full mx-auto">
           
-          <div className="flex flex-col items-center mb-16 gap-8 text-center">
-            <h2 className="text-4xl font-black text-slate-800 tracking-tight">
-              {data?.stock} <span className="text-slate-200 mx-3">|</span> <span className="text-slate-400 font-medium text-2xl tracking-normal">ID : {botId}</span>
+          {/* ปุ่มย้อนกลับ (Back Button) ด้านบน */}
+          <button 
+            onClick={() => router.back()}
+            className="group flex items-center gap-2 text-slate-400 hover:text-[#6A0DAD] transition-colors font-bold text-[11px] tracking-widest uppercase mb-6 w-fit"
+          >
+            <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
+            Back to Bots
+          </button>
+
+          <div className="flex flex-col items-center mb-10 gap-6 text-center">
+            <h2 className="text-3xl font-black text-slate-800 tracking-tight">
+              {data?.stock} <span className="text-slate-200 mx-3">|</span> <span className="text-slate-400 font-medium text-xl tracking-normal">ID : {botId}</span>
             </h2>
             
-            <div className="flex p-2 bg-white rounded-[2.5rem] border border-slate-100 shadow-sm gap-2">
-              <button onClick={() => setActiveTab('dashboard')} className={`px-12 py-3 rounded-[2rem] text-sm font-black uppercase tracking-widest transition-all duration-300 ${activeTab === 'dashboard' ? 'bg-[#8B5CF6] text-white shadow-xl shadow-purple-200' : 'text-slate-400 hover:text-slate-600'}`}>Dashboard</button>
+            <div className="flex p-1.5 bg-slate-100 rounded-full border border-slate-200 shadow-inner gap-1">
+              <button onClick={() => setActiveTab('dashboard')} className={`px-8 py-2.5 rounded-full text-xs font-black uppercase tracking-widest transition-all duration-300 ${activeTab === 'dashboard' ? 'bg-[#8B5CF6] text-white shadow-md' : 'text-slate-500 hover:text-slate-700'}`}>Dashboard</button>
               {data?.botType !== "AI" && (
-                <button onClick={() => setActiveTab('configuration')} className={`px-12 py-3 rounded-[2rem] text-sm font-black uppercase tracking-widest transition-all duration-300 ${activeTab === 'configuration' ? 'bg-[#8B5CF6] text-white shadow-xl shadow-purple-200' : 'text-slate-400 hover:text-slate-600'}`}>Configuration</button>
+                <button onClick={() => setActiveTab('configuration')} className={`px-8 py-2.5 rounded-full text-xs font-black uppercase tracking-widest transition-all duration-300 ${activeTab === 'configuration' ? 'bg-[#8B5CF6] text-white shadow-md' : 'text-slate-500 hover:text-slate-700'}`}>Configuration</button>
               )}
             </div>
           </div>
 
           {activeTab === 'dashboard' ? (
-            <section className="space-y-10 animate-in fade-in zoom-in-95 duration-500">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
-                  <h4 className="text-lg font-bold text-slate-800 mb-6 tracking-tight">Current Profits</h4>
-                  <div className={`p-8 rounded-3xl flex items-center gap-8 border transition-all ${(data?.totalPnL ?? 0) < 0 ? 'bg-rose-50 border-rose-100 text-rose-500' : 'bg-emerald-50 border-emerald-100 text-emerald-500'}`}>
-                    {(data?.totalPnL ?? 0) < 0 ? <TrendingDown size={56}/> : <TrendingUp size={56}/>}
-                    <div><p className="text-slate-500 font-bold text-xs uppercase tracking-widest mb-1">Total PnL</p><p className="text-4xl font-black">{data?.totalPnL.toLocaleString()} ฿</p></div>
+            <section className="space-y-6 animate-in fade-in zoom-in-95 duration-500 max-w-5xl mx-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                  <h4 className="text-base font-bold text-slate-800 mb-4 tracking-tight">Current Profits</h4>
+                  <div className={`p-5 rounded-2xl flex items-center gap-5 border transition-all ${(data?.totalPnL ?? 0) < 0 ? 'bg-rose-50/50 border-rose-100 text-rose-500' : 'bg-emerald-50/50 border-emerald-100 text-emerald-500'}`}>
+                    <div className={`p-3 rounded-xl ${(data?.totalPnL ?? 0) < 0 ? 'bg-rose-100' : 'bg-emerald-100'}`}>{(data?.totalPnL ?? 0) < 0 ? <TrendingDown size={32}/> : <TrendingUp size={32}/>}</div>
+                    <div><p className="text-slate-500 font-bold text-[10px] uppercase tracking-widest mb-1">Total PnL</p><p className="text-3xl font-black">{data?.totalPnL.toLocaleString()} <span className="text-lg">฿</span></p></div>
                   </div>
                 </div>
 
-                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm relative flex flex-col justify-between overflow-hidden">
+                <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative flex flex-col justify-between overflow-hidden">
                   {isToggling && <div className="absolute inset-0 bg-white/40 backdrop-blur-[2px] z-10 flex items-center justify-center"><Loader2 className="animate-spin text-purple-600"/></div>}
                   <div>
-                    <h4 className="text-lg font-bold text-slate-800 mb-6 tracking-tight">Bot Status</h4>
-                    <div className="bg-purple-50 p-8 rounded-3xl flex items-center gap-6 border border-purple-100">
-                      <div className="p-4 bg-white rounded-2xl shadow-sm"><Bot size={36} className="text-[#8B5CF6]" /></div>
-                      <p className={`text-2xl font-black uppercase tracking-tight ${data?.status === 'RUNNING' ? 'text-emerald-600' : 'text-slate-400'}`}>{data?.status}</p>
+                    <h4 className="text-base font-bold text-slate-800 mb-4 tracking-tight">Bot Status</h4>
+                    <div className="bg-slate-50 p-5 rounded-2xl flex items-center gap-5 border border-slate-100">
+                      <div className="p-3 bg-white rounded-xl shadow-sm"><Bot size={32} className="text-[#8B5CF6]" /></div>
+                      <p className={`text-xl font-black uppercase tracking-tight ${data?.status === 'RUNNING' ? 'text-emerald-600' : 'text-slate-400'}`}>{data?.status}</p>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between pt-6 mt-4 border-t border-slate-100">
-                    <span className="font-bold text-slate-700">Bot Control</span>
-                    <button onClick={handleToggleBot} className={`w-16 h-8 rounded-full relative transition-all ${data?.status === 'RUNNING' ? 'bg-[#8B5CF6]' : 'bg-slate-300'}`}>
-                      <div className={`absolute top-1 w-6 h-6 bg-white rounded-full shadow-md transition-all ${data?.status === 'RUNNING' ? 'left-9' : 'left-1'}`} />
+                  <div className="flex items-center justify-between pt-4 mt-3 border-t border-slate-100">
+                    <span className="font-bold text-sm text-slate-600">Bot Control</span>
+                    <button onClick={handleToggleBot} className={`w-12 h-6 rounded-full relative transition-all ${data?.status === 'RUNNING' ? 'bg-[#8B5CF6]' : 'bg-slate-300'}`}>
+                      <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-all ${data?.status === 'RUNNING' ? 'left-7' : 'left-1'}`} />
                     </button>
                   </div>
                 </div>
@@ -258,84 +309,84 @@ export default function BotDetailPage() {
             </section>
           ) : (
             /* --- CONFIGURATION VIEW --- */
-            <section className="animate-in slide-in-from-bottom-8 duration-600 space-y-12 max-w-5xl mx-auto pb-20">
+            <section className="animate-in slide-in-from-bottom-8 duration-600 space-y-5 max-w-4xl mx-auto pb-20">
               <div className="flex justify-end">
-                <div className="bg-white px-6 py-4 rounded-3xl border border-slate-100 flex items-center gap-6 shadow-sm">
-                  <span className="font-black text-slate-700 text-sm tracking-tight">Private Mode</span>
-                  <button onClick={() => setIsPrivate(!isPrivate)} className={`w-12 h-6 rounded-full relative transition-all ${isPrivate ? 'bg-[#8B5CF6]' : 'bg-slate-300'}`}><div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${isPrivate ? 'right-1.5' : 'left-1.5'}`}></div></button>
+                <div className="bg-white px-4 py-2.5 rounded-xl border border-slate-100 flex items-center gap-3 shadow-sm">
+                  <span className="font-bold text-slate-600 text-[10px] uppercase tracking-widest">Private Mode</span>
+                  <button type="button" onClick={() => setIsPrivate(!isPrivate)} className={`w-8 h-4 rounded-full relative transition-all ${isPrivate ? 'bg-[#8B5CF6]' : 'bg-slate-300'}`}><div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${isPrivate ? 'right-0.5' : 'left-0.5'}`}></div></button>
                 </div>
               </div>
 
               {/* Advance Setting Section */}
-              <div className="bg-white p-12 rounded-[3rem] border border-slate-100 shadow-sm space-y-10">
-                <div className="flex items-center gap-4"><Zap className="text-amber-500 fill-amber-500" size={32} /><h4 className="text-2xl font-black text-slate-800 tracking-tight">Advance Setting</h4></div>
-                <div className="space-y-12">
-                  <div className="grid grid-cols-4 text-center text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 border-b border-slate-50 pb-4"><span>Indicator</span><span>Condition</span><span>Value/Indicator</span><span>Action</span></div>
+              <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-100 shadow-sm space-y-6">
+                <div className="flex items-center gap-2"><Zap className="text-amber-500 fill-amber-500" size={18} /><h4 className="text-lg font-black text-slate-800 tracking-tight">Advance Setting</h4></div>
+                <div className="space-y-5">
+                  <div className="grid grid-cols-4 text-center text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 border-b border-slate-50 pb-3"><span>Indicator</span><span>Condition</span><span>Value/Indicator</span><span>Action</span></div>
                   {rules.map((rule, rIdx) => (
-                    <div key={rule.id} className="p-8 border border-slate-100 rounded-[2.5rem] bg-slate-50/30 space-y-8 relative">
+                    <div key={rule.id} className="p-4 md:p-6 border border-slate-100 rounded-2xl bg-slate-50/50 space-y-4 relative">
                       <div className="flex justify-between items-center">
-                        <span className="bg-slate-800 text-white text-[10px] font-black px-4 py-2 rounded-xl uppercase tracking-widest">Group #{rIdx+1}</span>
-                        <div className="flex items-center gap-4">
-                          <div className="relative bg-white rounded-2xl shadow-sm border border-slate-100 h-11 min-w-[100px] flex items-center">
-                             <select value={rule.action} onChange={(e) => updateRuleAction(rule.id, e.target.value)} className="appearance-none w-full bg-transparent font-black text-sm outline-none px-4 pr-10 text-slate-900" style={{ color: rule.action === 'BUY' ? '#10B981' : '#EF4444' }}><option value="BUY">BUY</option><option value="SELL">SELL</option></select>
+                        <span className="bg-slate-800 text-white text-[10px] font-black px-3 py-1.5 rounded-lg uppercase tracking-widest">Group #{rIdx+1}</span>
+                        <div className="flex items-center gap-3">
+                          <div className="relative bg-white rounded-xl shadow-sm border border-slate-100 h-9 min-w-[90px] flex items-center">
+                             <select value={rule.action} onChange={(e) => updateRuleAction(rule.id, e.target.value)} className="appearance-none w-full bg-transparent font-black text-sm outline-none px-4 pr-10 cursor-pointer" style={{ color: rule.action === 'BUY' ? '#10B981' : '#EF4444' }}><option value="BUY">BUY</option><option value="SELL">SELL</option></select>
                              <ChevronDown size={16} className="pointer-events-none absolute right-3 text-slate-400" />
                           </div>
-                          {rIdx > 0 && <button onClick={() => removeRuleGroup(rule.id)} className="text-slate-300 hover:text-rose-500 transition-all"><Trash2 size={20}/></button>}
+                          {rIdx > 0 && <button type="button" onClick={() => removeRuleGroup(rule.id)} className="text-slate-300 hover:text-rose-500 transition-all"><Trash2 size={18}/></button>}
                         </div>
                       </div>
                       {rule.conditions.map((cond: any) => (
-                        <div key={cond.id} className="grid grid-cols-4 gap-6 items-center">
-                          <div className="flex items-center gap-2 bg-white p-2 rounded-2xl border border-slate-100 shadow-sm">
-                            <div className="relative flex-1 bg-slate-50 rounded-xl h-10 flex items-center">
-                              <select value={cond.indicator} onChange={e => updateCondition(rule.id, cond.id, 'indicator', e.target.value)} className="appearance-none w-full bg-transparent font-bold text-xs outline-none px-3 pr-8"><option value="">เลือก</option>{INDICATOR_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select>
+                        <div key={cond.id} className="grid grid-cols-4 gap-4 items-center">
+                          <div className="flex items-center gap-2 bg-white p-1.5 rounded-xl border border-slate-100 shadow-sm h-11">
+                            <div className="relative flex-1 bg-slate-50 rounded-lg h-full flex items-center">
+                              <select value={cond.indicator} onChange={e => updateCondition(rule.id, cond.id, 'indicator', e.target.value)} className="appearance-none w-full bg-transparent font-bold text-xs outline-none text-slate-900 px-3 cursor-pointer pr-8"><option value="">เลือก</option>{INDICATOR_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select>
                               <ChevronDown size={14} className="pointer-events-none absolute right-2 text-slate-300" />
                             </div>
-                            <div className="w-12 h-10 bg-slate-100 rounded-xl flex items-center justify-center"><input value={cond.period} onChange={e => updateCondition(rule.id, cond.id, 'period', e.target.value)} className="bg-transparent w-full text-center text-xs font-bold outline-none" placeholder="Pd" /></div>
+                            <div className="w-10 h-full bg-slate-100 rounded-lg flex items-center justify-center"><input value={cond.period} onChange={e => updateCondition(rule.id, cond.id, 'period', e.target.value)} className="bg-transparent w-full text-center text-xs font-bold outline-none" placeholder="Pd" /></div>
                           </div>
-                          <div className="bg-white p-2 rounded-2xl border border-slate-100 shadow-sm h-14 flex items-center">
-                            <div className="relative w-full bg-slate-50 rounded-xl h-10 flex items-center px-3">
-                              <select value={cond.operator} onChange={e => updateCondition(rule.id, cond.id, 'operator', e.target.value)} className="appearance-none w-full bg-transparent font-bold text-xs outline-none text-center cursor-pointer"><option value="">เลือก</option>{CONDITION_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select>
+                          <div className="bg-white p-1.5 rounded-xl border border-slate-100 shadow-sm h-11 flex items-center">
+                            <div className="relative w-full bg-slate-50 rounded-lg h-full flex items-center px-2">
+                              <select value={cond.operator} onChange={e => updateCondition(rule.id, cond.id, 'operator', e.target.value)} className="appearance-none w-full bg-transparent font-bold text-xs outline-none text-slate-900 text-center cursor-pointer px-3 pr-8"><option value="">เลือกเงื่อนไข</option>{CONDITION_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select>
                               <ChevronDown size={14} className="pointer-events-none absolute right-2 text-slate-300" />
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 bg-white p-2 rounded-2xl border border-slate-100 shadow-sm">
-                            <div className="relative flex-1 bg-slate-50 rounded-xl h-10 flex items-center px-2">
+                          <div className="flex items-center gap-2 bg-white p-1.5 rounded-xl border border-slate-100 shadow-sm h-11">
+                            <div className="relative flex-1 bg-slate-50 rounded-lg h-full flex items-center px-2">
                               <select value={cond.rightType} onChange={e => updateCondition(rule.id, cond.id, 'rightType', e.target.value)} className="appearance-none bg-transparent font-bold text-[10px] w-14 outline-none text-slate-400 uppercase border-r border-slate-100 mr-2 pr-4"><option value="VALUE">VAL</option><option value="INDICATOR">IND</option></select>
                               {cond.rightType === 'VALUE' ? (
-                                <input value={cond.rightValue} onChange={e => updateCondition(rule.id, cond.id, 'rightValue', e.target.value)} className="bg-transparent w-full font-bold text-xs outline-none" placeholder="ค่า" />
+                                <input value={cond.rightValue} onChange={e => updateCondition(rule.id, cond.id, 'rightValue', e.target.value)} className="bg-transparent w-full font-bold text-xs text-slate-900 outline-none" placeholder="ค่า" />
                               ) : (
-                                <select value={cond.rightIndicator} onChange={e => updateCondition(rule.id, cond.id, 'rightIndicator', e.target.value)} className="appearance-none bg-transparent font-bold text-xs w-full outline-none"><option value="">เลือก</option>{INDICATOR_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select>
+                                <select value={cond.rightIndicator} onChange={e => updateCondition(rule.id, cond.id, 'rightIndicator', e.target.value)} className="appearance-none bg-transparent font-bold text-xs w-full outline-none text-slate-900 pr-6"><option value="">เลือก</option>{INDICATOR_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select>
                               )}
                             </div>
-                            {cond.rightType === 'INDICATOR' && (<div className="w-12 h-10 bg-slate-100 rounded-xl flex items-center justify-center"><input value={cond.rightPeriod} onChange={e => updateCondition(rule.id, cond.id, 'rightPeriod', e.target.value)} className="bg-transparent w-full text-center text-xs font-bold outline-none" placeholder="Pd" /></div>)}
+                            {cond.rightType === 'INDICATOR' && (<div className="w-10 h-full bg-slate-100 rounded-lg flex items-center justify-center"><input value={cond.rightPeriod} onChange={e => updateCondition(rule.id, cond.id, 'rightPeriod', e.target.value)} className="bg-transparent w-full text-center text-xs font-bold outline-none" placeholder="Pd" /></div>)}
                           </div>
                           <div className={`text-center font-black text-xs uppercase tracking-widest ${rule.action === 'BUY' ? 'text-emerald-500' : 'text-rose-500'}`}>{rule.action}</div>
                         </div>
                       ))}
-                      <div className="flex gap-4 pt-4 ml-2">
-                        <button onClick={() => setRuleLogic(rule.id, 'AND')} className={`px-6 py-2 rounded-full text-[10px] font-black border transition-all ${rule.logic === 'AND' ? 'bg-purple-100 text-[#6A0DAD] border-purple-200' : 'bg-white text-slate-400 border-slate-100'}`}>AND</button>
-                        <button onClick={() => setRuleLogic(rule.id, 'OR')} className={`px-6 py-2 rounded-full text-[10px] font-black border transition-all ${rule.logic === 'OR' ? 'bg-purple-100 text-[#6A0DAD] border-purple-200' : 'bg-white text-slate-400 border-slate-100'}`}>OR</button>
-                        <button onClick={() => addSubRule(rule.id)} className="px-6 py-2 rounded-full text-[10px] font-black bg-white text-slate-400 border border-slate-100 hover:bg-slate-50">+ SUB-RULE</button>
+                      <div className="flex gap-3 pt-2 ml-1">
+                        <button type="button" onClick={() => setRuleLogic(rule.id, 'AND')} className={`px-6 py-1.5 rounded-full text-[10px] font-black border transition-all ${rule.logic === 'AND' ? 'bg-purple-100 text-[#6A0DAD] border-purple-200' : 'bg-white text-slate-400 border-slate-100'}`}>AND</button>
+                        <button type="button" onClick={() => setRuleLogic(rule.id, 'OR')} className={`px-6 py-1.5 rounded-full text-[10px] font-black border transition-all ${rule.logic === 'OR' ? 'bg-purple-100 text-[#6A0DAD] border-purple-200' : 'bg-white text-slate-400 border-slate-100'}`}>OR</button>
+                        <button type="button" onClick={() => addSubRule(rule.id)} className="px-6 py-1.5 rounded-full text-[10px] font-black bg-white text-slate-400 border border-slate-100 hover:bg-slate-50">+ SUB-RULE</button>
                       </div>
                     </div>
                   ))}
-                  <button onClick={addRuleGroup} className="w-full py-5 border-2 border-dashed border-slate-100 rounded-[1.5rem] text-slate-400 font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-slate-50 transition-all"><Plus size={18} /> Add Logic Group</button>
+                  <button type="button" onClick={addRuleGroup} className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-slate-50 transition-all mt-2"><Plus size={16} /> Add Logic Group</button>
                 </div>
               </div>
 
               {/* Risk Management Section */}
-              <div className="bg-white p-12 rounded-[3rem] border border-slate-100 shadow-sm space-y-12">
-                <div className="flex items-center gap-4"><ShieldCheck className="text-emerald-500" size={32} /><h4 className="text-2xl font-black text-slate-800 tracking-tight">Risk Management</h4></div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
-                  <div className="space-y-4"><label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-2">Risk Percentage (%)</label><input type="number" value={riskPct} onChange={(e)=>setRiskPct(e.target.value)} className="w-full p-6 bg-slate-50 rounded-[1.5rem] border-none font-black text-slate-900 focus:ring-4 focus:ring-purple-100 outline-none" /></div>
-                  <div className="space-y-4"><label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-2">Risk-Reward (RR)</label><input type="number" step="0.1" value={rrValue} onChange={(e)=>setRrValue(e.target.value)} className="w-full p-6 bg-slate-50 rounded-[1.5rem] border-none font-black text-slate-900 focus:ring-4 focus:ring-purple-100 outline-none" /></div>
-                  <div className="space-y-4"><label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-2">ATR Period</label><input type="number" value={atrPeriod} onChange={(e)=>setAtrPeriod(e.target.value)} className="w-full p-6 bg-slate-50 rounded-[1.5rem] border-none font-black text-slate-900 focus:ring-4 focus:ring-purple-100 outline-none" /></div>
-                  <div className="space-y-4"><label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-2">ATR Multiplier</label><input type="number" step="0.1" value={atrMult} onChange={(e)=>setAtrMult(e.target.value)} className="w-full p-6 bg-slate-50 rounded-[1.5rem] border-none font-black text-slate-900 focus:ring-4 focus:ring-purple-100 outline-none" /></div>
+              <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-100 shadow-sm space-y-6">
+                <div className="flex items-center gap-2"><ShieldCheck className="text-emerald-500" size={18} /><h4 className="text-lg font-black text-slate-800 tracking-tight">Risk Management</h4></div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-6">
+                  <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Risk Percentage (%)</label><input type="number" value={riskPct} onChange={(e)=>setRiskPct(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl outline-none text-slate-900 text-sm font-bold focus:ring-2 focus:ring-purple-200 transition-all" /></div>
+                  <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Risk-Reward (RR)</label><input type="number" step="0.1" value={rrValue} onChange={(e)=>setRrValue(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl outline-none text-slate-900 text-sm font-bold focus:ring-2 focus:ring-purple-200 transition-all" /></div>
+                  <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ATR Period</label><input type="number" value={atrPeriod} onChange={(e)=>setAtrPeriod(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl outline-none text-slate-900 text-sm font-bold focus:ring-2 focus:ring-purple-200 transition-all" /></div>
+                  <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ATR Multiplier</label><input type="number" step="0.1" value={atrMult} onChange={(e)=>setAtrMult(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl outline-none text-slate-900 text-sm font-bold focus:ring-2 focus:ring-purple-200 transition-all" /></div>
                 </div>
               </div>
-              <div className="flex justify-center gap-8 pt-10">
-                <button onClick={handleSaveConfig} disabled={isSaving} className="px-20 py-6 bg-[#8B5CF6] text-white text-lg font-black rounded-full shadow-2xl shadow-purple-200 hover:bg-purple-700 transition-all hover:-translate-y-1 active:scale-95 flex items-center gap-4">{isSaving ? <Loader2 className="animate-spin" /> : "Save Changes"}</button>
-                <button onClick={() => setActiveTab('dashboard')} className="px-16 py-6 bg-slate-100 text-slate-400 font-black rounded-full hover:bg-slate-200 transition-all active:scale-95">Cancel</button>
+              <div className="pt-8 pb-12 border-t border-slate-100 flex flex-col-reverse sm:flex-row items-center justify-end gap-4">
+                <button type="button" onClick={() => setActiveTab('dashboard')} className="w-full sm:w-auto px-8 py-4 bg-slate-100 text-slate-500 font-bold text-xs uppercase tracking-widest rounded-xl hover:bg-slate-200 transition-all active:scale-95">Cancel</button>
+                <button type="button" onClick={handleSaveConfig} disabled={isSaving} className="w-full sm:w-auto px-12 py-4 bg-gradient-to-r from-[#8200DB] to-[#5837F6] text-white text-xs font-black uppercase tracking-widest rounded-xl shadow-lg shadow-purple-200 hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 flex items-center justify-center gap-2">{isSaving ? <Loader2 className="animate-spin size-4" /> : "Save Changes"}</button>
               </div>
             </section>
           )}
