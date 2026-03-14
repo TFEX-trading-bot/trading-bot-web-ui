@@ -88,9 +88,10 @@ export default function Pricing({ onOpenAuth }: PricingProps) {
                 <div className="mt-auto"> 
                   {/* ราคา (Price) - ขนาด 5xl กำลังพอดี ไม่ใหญ่เกินไป */}
                   <div className="mb-8">
-                    <div className="flex items-baseline gap-1">
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-2xl lg:text-3xl font-bold text-slate-400">฿</span>
                       <span className="text-5xl font-black text-slate-900 tracking-tighter">
-                        {sub.price === 0 ? "฿0" : `฿${Number(sub.price).toLocaleString()}`}
+                        {sub.price === 0 ? "0" : Number(sub.price).toLocaleString()}
                       </span>
                       <span className="text-slate-400 font-bold text-[10px] uppercase tracking-widest ml-1">
                         /Month
