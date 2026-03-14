@@ -4,10 +4,11 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { 
   Edit2, Plus, Loader2, Bot, 
-  Trash2, AlertTriangle 
+  Trash2, AlertTriangle, Menu 
 } from "lucide-react";
 import DashboardHeader from "@/components/Header";
 import AdminSidebar from "@/components/AdminSidebar";
+import ProfileDropdown from "@/components/ProfileDropdown";
 import axios from "axios";
 
 // ✅ เชื่อมต่อกับ API บน Vercel
@@ -20,6 +21,7 @@ export default function AdminSubscriptionPage() {
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
   const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; subId: number | null }>({
     isOpen: false,
@@ -131,13 +133,45 @@ export default function AdminSubscriptionPage() {
   );
 
   return (
-    <div className="flex min-h-screen bg-[#F8FAFC]">
-      <aside className="sticky top-0 h-screen hidden md:block z-50">
+    <div className="flex min-h-screen bg-[#F8FAFC] relative">
+      {/* Backdrop สีดำโปร่งแสงสำหรับมือถือ */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 md:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar (Hamburger Menu Drawer สำหรับมือถือ) */}
+      <aside className={`
+        fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 ease-in-out
+        md:relative md:translate-x-0
+        ${isSidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"}
+      `}>
         <AdminSidebar />
       </aside>
 
       <main className="flex-1 flex flex-col min-w-0 bg-white text-black font-sans">
-        <DashboardHeader title="Subscription Plans" />
+        {/* แถบด้านบนสำหรับมือถือ พร้อมปุ่ม Hamburger Menu */}
+        <div className="md:hidden flex items-center justify-between p-4 bg-white border-b border-slate-100 sticky top-0 z-30">
+          <div className="flex items-center">
+            <button 
+              onClick={() => setIsSidebarOpen(true)} 
+              className="p-2 rounded-xl bg-purple-50 text-[#8200DB] hover:bg-purple-100 transition-colors"
+            >
+              <Menu size={24} />
+            </button>
+            <span className="ml-4 text-[24px] font-black bg-gradient-to-r from-[#7111B6] via-[#901CFA] to-[#5837F6] bg-clip-text text-transparent leading-normal tracking-tight pb-1">
+              Subscription
+            </span>
+          </div>
+          <ProfileDropdown />
+        </div>
+
+        {/* ซ่อน Header ของ Desktop บนมือถือ */}
+        <div className="hidden md:block">
+          <DashboardHeader title="Subscription Plans" />
+        </div>
 
         <div className="p-8 lg:p-12 max-w-[1800px] w-full mx-auto overflow-y-auto">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">

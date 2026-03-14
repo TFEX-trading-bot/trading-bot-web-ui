@@ -3,14 +3,14 @@
 import React from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Bot, ShoppingBag, CircleDollarSign, ChevronDown, LayoutDashboard } from 'lucide-react';
+import { Bot, ShoppingBag, CircleDollarSign, LayoutDashboard } from 'lucide-react';
 
 const Sidebar = () => {
   const pathname = usePathname();
   const isActive = (path: string) => pathname === path;
 
   return (
-    <aside className="flex flex-col h-screen w-[280px] flex-shrink-0 bg-gradient-to-br from-[#5D0CA1] via-[#4B0082] to-[#360062] text-white p-6 shadow-2xl select-none relative overflow-hidden z-50">
+    <aside className="flex flex-col h-full md:h-screen md:sticky md:top-0 w-[280px] flex-shrink-0 bg-gradient-to-br from-[#5D0CA1] via-[#4B0082] to-[#360062] text-white p-6 shadow-2xl select-none relative overflow-hidden z-50">
       
       {/* Background Decor */}
       <div className="absolute top-[-10%] left-[-20%] w-64 h-64 bg-white/5 rounded-full blur-3xl" />
@@ -34,7 +34,7 @@ const Sidebar = () => {
       {/* Navigation Links */}
       <nav className="space-y-3 flex-1">
         {[
-          { name: 'My Bot', path: '/my-bot', icon: LayoutDashboard, hasDropdown: true },
+          { name: 'My Bot', path: '/my-bot', icon: LayoutDashboard },
           { name: 'Market Place', path: '/market-place', icon: ShoppingBag },
           { name: 'Pricing', path: '/pricing', icon: CircleDollarSign },
         ].map((item) => {
@@ -66,10 +66,6 @@ const Sidebar = () => {
                     {item.name}
                   </span>
                 </div>
-                
-                {item.hasDropdown && (
-                  <ChevronDown className={`w-4 h-4 transition-all duration-500 ${active ? 'text-white rotate-180' : 'text-white/30 group-hover:text-white group-hover:translate-y-0.5'}`} />
-                )}
               </div>
             </Link>
           );
