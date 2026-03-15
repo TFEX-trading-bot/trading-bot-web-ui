@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback, Suspense } from "react";
 import Sidebar from "@/components/Sidebar";
-import { CreditCard, User, Mail, Landmark, ShieldCheck, Loader2, Menu, Bot, Settings, Save, ChevronDown } from "lucide-react";
+import { CreditCard, User, Mail, Landmark, ShieldCheck, Loader2, Menu, Bot, Settings, Save, ChevronDown, AlertCircle } from "lucide-react";
 import DashboardHeader from "@/components/Header";
 import ProfileDropdown from "@/components/ProfileDropdown";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -20,6 +20,9 @@ function ProfileContent() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [confirmedName, setConfirmedName] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  
+  // ✅ State สำหรับข้อความแจ้งเตือนเลขบัญชี
+  const [accountError, setAccountError] = useState("");
   
   // ✅ State สำหรับ Tab และ ประวัติการชำระเงิน
   const [activeTab, setActiveTab] = useState<"profile" | "billing">("profile");
@@ -66,7 +69,6 @@ function ProfileContent() {
     return {
       name: activePlan.name,
       price: typeof activePlan.price === 'number' ? activePlan.price.toFixed(2) : activePlan.price,
-      // รองรับชื่อฟิลด์ทั้งแบบ snake_case และ camelCase จาก Backend
       description: activePlan.description || "",
       botNumber: activePlan.bot_number || activePlan.botNumber || activePlan.max_bots || 0,
       color: planColors[activePlan.id] || "from-purple-500 to-indigo-500"
@@ -83,12 +85,10 @@ function ProfileContent() {
     }
 
     try {
-      // ✅ ดึงข้อมูล User, Plans และ History พร้อมกัน
       const [userRes, plansRes, historyRes] = await Promise.all([
         axios.get(`${API_URL}/users/${userId}`, { headers: { Authorization: `Bearer ${token}` } }),
         axios.get(`${API_URL}/subscriptions`, { headers: { Authorization: `Bearer ${token}` } }),
         axios.get(`${API_URL}/payments/history`, { headers: { Authorization: `Bearer ${token}` } }).catch((err) => {
-          // ✅ เปลี่ยนมาพ่น Error แจ้งเตือนใน Console แทนการซ่อนไว้
           console.error("History API Error:", err.response?.data || err.message);
           return { data: [] }; 
         })
@@ -97,19 +97,16 @@ function ProfileContent() {
       const user = userRes.data;
       setAvailablePlans(plansRes.data);
       
-      // ✅ รองรับทั้งกรณีที่ API ส่งคืน Array ตรงๆ หรือมี Object { data: [...] } ครอบมาอีกชั้น
       const rawHistory = Array.isArray(historyRes.data) 
         ? historyRes.data 
         : (Array.isArray(historyRes.data?.data) ? historyRes.data.data : []);
 
-      // ✅ จัดเรียงประวัติการชำระเงินจากรายการใหม่ล่าสุดไปเก่า
       const sortedHistory = rawHistory.sort((a: any, b: any) => 
         new Date(b.createdAt || Date.now()).getTime() - new Date(a.createdAt || Date.now()).getTime()
       );
         
       setBillingHistory(sortedHistory);
 
-      // ✅ แยก BankName และ AccountNumber ออกจากกันด้วยช่องว่าง
       const fetchedAccNum = user.accountNumber || user.account_number || "";
       let initialBankName = "";
       let initialAccNum = fetchedAccNum;
@@ -127,7 +124,6 @@ function ProfileContent() {
         username: user.username || "",
         bankName: initialBankName,
         accountNumber: initialAccNum, 
-        // ✅ ดักการอ่านค่าครอบคลุมทั้ง snake_case, camelCase และแบบ Object
         subscriptionId: user.subscriptionId || user.subscription_id || user.subscription?.id || null,
         subscriptionEndDate: user.subscriptionEndDate || user.subscription_end_date || null,
       });
@@ -146,7 +142,6 @@ function ProfileContent() {
     fetchData();
   }, [fetchData]);
 
-  // ✅ ตรวจจับการเปลี่ยนแปลงของ URL Parameter (เช่น ?tab=billing) แบบ Real-time
   useEffect(() => {
     const tab = searchParams.get("tab");
     if (tab === "billing") {
@@ -157,14 +152,26 @@ function ProfileContent() {
   }, [searchParams]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+
+    // ✅ เพิ่มเงื่อนไขตรวจสอบเลขบัญชี (รับเฉพาะตัวเลข 0-9)
+    if (name === "accountNumber") {
+      const onlyNums = /^[0-9]*$/;
+      if (!onlyNums.test(value)) {
+        setAccountError("Please enter only numbers.");
+        return; // ไม่ยอมให้อัปเดตค่าลงในช่อง input
+      } else {
+        setAccountError(""); // ล้างแจ้งเตือนเมื่อพิมพ์ถูกต้อง
+      }
+    }
+
+    setFormData({ ...formData, [name]: value });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const token = localStorage.getItem("token");
 
-    // ✅ เพิ่มการตรวจสอบข้อมูล (Validation) ก่อนส่ง API
     if (!formData.name.trim()) {
       alert("Please enter your full name.");
       return;
@@ -183,7 +190,6 @@ function ProfileContent() {
     if (!formData.id) return;
     setIsUpdating(true);
 
-    // ✅ รวมชื่อธนาคารและหมายเลขบัญชีเข้าด้วยกัน (คั่นด้วยช่องว่าง) ก่อนส่ง API
     const combinedAccountNumber = `${formData.bankName} ${formData.accountNumber}`;
 
     try {
@@ -199,7 +205,6 @@ function ProfileContent() {
       setConfirmedName(response.data.name);
       alert("Changes saved successfully!");
       
-      // ✅ แยกค่าจาก Response ของ API เพื่ออัปเดต State อีกครั้ง
       const updatedAccNum = response.data.accountNumber || response.data.account_number || combinedAccountNumber;
       let resBankName = formData.bankName;
       let resAccNum = formData.accountNumber;
@@ -235,7 +240,6 @@ function ProfileContent() {
 
   return (
     <div className="flex min-h-screen bg-[#F8FAFC] font-sans text-slate-800 relative">
-      {/* Backdrop สีดำโปร่งแสงสำหรับมือถือ */}
       {isSidebarOpen && (
         <div 
           className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 md:hidden"
@@ -243,7 +247,6 @@ function ProfileContent() {
         />
       )}
 
-      {/* Sidebar (Hamburger Menu Drawer สำหรับมือถือ) */}
       <aside className={`
         fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 ease-in-out
         md:relative md:translate-x-0
@@ -253,7 +256,6 @@ function ProfileContent() {
       </aside>
 
       <main className="flex-1 flex flex-col min-w-0 bg-white">
-        {/* แถบด้านบนสำหรับมือถือ พร้อมปุ่ม Hamburger Menu */}
         <div className="md:hidden flex items-center justify-between p-4 bg-white border-b border-slate-100 sticky top-0 z-30">
           <div className="flex items-center">
             <button 
@@ -269,18 +271,13 @@ function ProfileContent() {
           <ProfileDropdown />
         </div>
 
-        {/* ซ่อน Header ของ Desktop บนมือถือ */}
         <div className="hidden md:block">
           <DashboardHeader title="Profile Settings" />
         </div>
 
         <div className="p-6 md:p-8 max-w-6xl mx-auto w-full animate-in fade-in slide-in-from-bottom-4 duration-700">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
-            
-            {/* Left Column - Profile Summary & Plan Card */}
             <div className="lg:col-span-4 flex flex-col gap-6">
-              
-              {/* ✅ Profile Overview Card */}
               <div className="bg-white rounded-[2rem] p-6 md:p-8 shadow-sm hover:shadow-md transition-shadow duration-300 border border-slate-100 flex flex-col items-center text-center relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-r from-purple-100 to-indigo-50"></div>
                 <div className="relative mb-4 mt-2">
@@ -299,13 +296,11 @@ function ProfileContent() {
                 </div>
               </div>
 
-              {/* ✅ Subscription Plan Card */}
               <div className={`bg-gradient-to-br ${currentPlan.color} rounded-[2rem] p-8 text-white shadow-xl shadow-purple-900/10 relative overflow-hidden flex flex-col h-full`}>
                 <div className="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 rounded-full bg-white/10 blur-2xl group-hover:bg-white/20 transition-all"></div>
                 <div className="absolute bottom-0 left-0 -ml-8 -mb-8 w-24 h-24 rounded-full bg-black/10 blur-xl"></div>
                 
                 <div className="relative z-10 flex flex-col flex-1">
-                  {/* Header: Name & Status Badge */}
                   <div className="flex justify-between items-start mb-6">
                     <h2 className="text-3xl font-black tracking-tight drop-shadow-sm">{currentPlan.name}</h2>
                     <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest backdrop-blur-md border ${formData.subscriptionId ? 'bg-emerald-500/20 border-emerald-400/30 text-emerald-50' : 'bg-white/20 border-white/20 text-white'}`}>
@@ -313,14 +308,12 @@ function ProfileContent() {
                     </span>
                   </div>
               
-                  {/* Price */}
                   <div className="mb-8 flex items-baseline gap-1.5">
                     <span className="text-2xl md:text-3xl font-bold text-white/80">฿</span>
                     <span className="text-4xl md:text-5xl font-black tracking-tighter">{currentPlan.price}</span>
                     <span className="text-xs font-bold text-white/80 uppercase tracking-widest ml-1">/ Month</span>
                   </div>
 
-                  {/* Details / Features List */}
                   <div className="flex-1 mb-8 space-y-4 text-sm">
                     {currentPlan.name !== "No Plan" ? (
                       <>
@@ -347,7 +340,6 @@ function ProfileContent() {
                     )}
                   </div>
                     
-                  {/* Action Button */}
                   <div className="mt-auto">
                     <button 
                       onClick={() => router.push('/pricing')}
@@ -360,11 +352,8 @@ function ProfileContent() {
               </div>
             </div>
 
-            {/* Right Column - Tabs and Content */}
             <div className="lg:col-span-8 flex flex-col">
-              
               <div className="bg-white rounded-[2rem] shadow-sm hover:shadow-md transition-shadow duration-300 border border-slate-100 text-black flex-1 flex flex-col">
-                {/* ส่วนหัวสำหรับสลับ Tab */}
                 <div className="px-6 md:px-10 pt-6 md:pt-8 flex items-center space-x-6 overflow-x-auto hide-scrollbar border-b border-slate-100">
                   <button
                     onClick={() => setActiveTab("profile")}
@@ -384,7 +373,6 @@ function ProfileContent() {
                   </button>
                 </div>
 
-                {/* เนื้อหาหลักตาม Tab ที่เลือก */}
                 <div key={activeTab} className="p-6 md:p-10 flex-1 flex flex-col animate-in fade-in slide-in-from-bottom-2 duration-500">
                 {activeTab === "profile" ? (
                   <>
@@ -400,7 +388,6 @@ function ProfileContent() {
 
                     <form className="space-y-6" onSubmit={handleSubmit}>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Full Name */}
                         <div className="space-y-2.5 group">
                           <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1 group-focus-within:text-[#8200DB] transition-colors">
                             Full Name
@@ -417,7 +404,6 @@ function ProfileContent() {
                           </div>
                         </div>
 
-                        {/* Email */}
                         <div className="space-y-2.5">
                           <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">
                             Email Address
@@ -434,7 +420,6 @@ function ProfileContent() {
                           <p className="text-[9px] text-slate-400 font-bold ml-1.5">* Email cannot be changed.</p>
                         </div>
 
-                        {/* Bank Name Dropdown */}
                         <div className="space-y-2.5 group">
                           <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1 group-focus-within:text-[#8200DB] transition-colors">
                             Bank Name
@@ -462,7 +447,6 @@ function ProfileContent() {
                           </div>
                         </div>
 
-                        {/* Bank Account Number */}
                         <div className="space-y-2.5 group">
                           <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1 group-focus-within:text-[#8200DB] transition-colors">
                             Account Number
@@ -473,10 +457,17 @@ function ProfileContent() {
                             </div>
                             <input 
                               name="accountNumber" type="text" value={formData.accountNumber} onChange={handleChange} 
-                              className="w-full pl-11 pr-5 py-3 bg-slate-50 border border-slate-100 rounded-xl outline-none hover:border-purple-200 focus:ring-4 focus:ring-purple-500/10 focus:border-purple-400 focus:bg-white text-slate-900 text-sm font-semibold transition-all shadow-sm" 
-                              placeholder="e.g. 123-4-56789-0"
+                              className={`w-full pl-11 pr-5 py-3 bg-slate-50 border rounded-xl outline-none transition-all shadow-sm font-semibold text-sm ${accountError ? 'border-rose-400 focus:ring-rose-200 focus:border-rose-400' : 'border-slate-100 hover:border-purple-200 focus:ring-4 focus:ring-purple-500/10 focus:border-purple-400 focus:bg-white text-slate-900'}`} 
+                              placeholder="e.g. 1234567890"
                             />
                           </div>
+                          {/* ✅ แสดงข้อความแจ้งเตือนสีแดง */}
+                          {accountError && (
+                            <div className="flex items-center gap-1.5 text-rose-500 text-[10px] font-bold mt-1 ml-1 animate-in fade-in slide-in-from-top-1">
+                              <AlertCircle size={12} />
+                              {accountError}
+                            </div>
+                          )}
                         </div>
                       </div>
 
@@ -546,14 +537,13 @@ function ProfileContent() {
         </div>
       </main>
 
-      {/* Payment Modal สำหรับจ่ายรายการที่ค้าง (Pending) */}
       {isPaymentModalOpen && (
         <PaymentModal
           isOpen={isPaymentModalOpen}
           onClose={() => setIsPaymentModalOpen(false)}
           onSuccess={() => {
             setIsPaymentModalOpen(false);
-            fetchData(); // ดึงข้อมูลใหม่เพื่ออัปเดตสเตตัสรายการที่ชำระสำเร็จ
+            fetchData();
           }}
           planId={selectedPlanId}
         />
