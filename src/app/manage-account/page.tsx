@@ -6,6 +6,7 @@ import { CreditCard, User, Mail, Landmark, ShieldCheck, Loader2, Menu, Bot, Sett
 import DashboardHeader from "@/components/Header";
 import ProfileDropdown from "@/components/ProfileDropdown";
 import { useRouter } from "next/navigation";
+import PaymentModal from "@/components/PaymentModal";
 import axios from "axios";
 
 // ✅ เชื่อมต่อกับ API บน Vercel
@@ -18,6 +19,14 @@ export default function ProfilePage() {
   const [confirmedName, setConfirmedName] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
+  // ✅ State สำหรับ Tab และ ประวัติการชำระเงิน
+  const [activeTab, setActiveTab] = useState<"profile" | "billing">("profile");
+  const [billingHistory, setBillingHistory] = useState<any[]>([]);
+  
+  // ✅ State สำหรับ Payment Modal
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [selectedPlanId, setSelectedPlanId] = useState<number>(0);
+
   // ✅ 1. State สำหรับเก็บรายการแผนที่ดึงมาจาก API /subscriptions
   const [availablePlans, setAvailablePlans] = useState<any[]>([]);
 
@@ -72,13 +81,31 @@ export default function ProfilePage() {
     }
 
     try {
-      const [userRes, plansRes] = await Promise.all([
+      // ✅ ดึงข้อมูล User, Plans และ History พร้อมกัน
+      const [userRes, plansRes, historyRes] = await Promise.all([
         axios.get(`${API_URL}/users/${userId}`, { headers: { Authorization: `Bearer ${token}` } }),
-        axios.get(`${API_URL}/subscriptions`, { headers: { Authorization: `Bearer ${token}` } })
+        axios.get(`${API_URL}/subscriptions`, { headers: { Authorization: `Bearer ${token}` } }),
+        axios.get(`${API_URL}/payments/history`, { headers: { Authorization: `Bearer ${token}` } }).catch((err) => {
+          // ✅ เปลี่ยนมาพ่น Error แจ้งเตือนใน Console แทนการซ่อนไว้
+          console.error("History API Error:", err.response?.data || err.message);
+          return { data: [] }; 
+        })
       ]);
 
       const user = userRes.data;
       setAvailablePlans(plansRes.data);
+      
+      // ✅ รองรับทั้งกรณีที่ API ส่งคืน Array ตรงๆ หรือมี Object { data: [...] } ครอบมาอีกชั้น
+      const rawHistory = Array.isArray(historyRes.data) 
+        ? historyRes.data 
+        : (Array.isArray(historyRes.data?.data) ? historyRes.data.data : []);
+
+      // ✅ จัดเรียงประวัติการชำระเงินจากรายการใหม่ล่าสุดไปเก่า
+      const sortedHistory = rawHistory.sort((a: any, b: any) => 
+        new Date(b.createdAt || Date.now()).getTime() - new Date(a.createdAt || Date.now()).getTime()
+      );
+        
+      setBillingHistory(sortedHistory);
 
       // ✅ แยก BankName และ AccountNumber ออกจากกันด้วยช่องว่าง
       const fetchedAccNum = user.accountNumber || user.account_number || "";
@@ -115,6 +142,14 @@ export default function ProfilePage() {
 
   useEffect(() => {
     fetchData();
+
+    // ✅ อ่านค่าจาก URL เพื่อสลับมาเปิดแท็บ Billing ให้อัตโนมัติ
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("tab") === "billing") {
+        setActiveTab("billing");
+      }
+    }
   }, [fetchData]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -321,122 +356,204 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Right Column - Information Form */}
-            <div className="lg:col-span-8">
-              <div className="bg-white rounded-[2rem] p-6 md:p-10 shadow-sm hover:shadow-md transition-shadow duration-300 border border-slate-100 text-black h-full flex flex-col">
-                <div className="mb-8 pb-5 border-b border-slate-100 flex items-center justify-between">
-                  <div>
-                    <h2 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight mb-1.5">Account Settings</h2>
-                    <p className="text-slate-500 text-xs md:text-sm font-medium">Manage your personal information and billing preferences.</p>
-                  </div>
-                  <div className="hidden md:flex p-3 bg-purple-50 rounded-2xl text-[#8200DB]">
-                    <Settings size={24} />
-                  </div>
+            {/* Right Column - Tabs and Content */}
+            <div className="lg:col-span-8 flex flex-col">
+              
+              <div className="bg-white rounded-[2rem] shadow-sm hover:shadow-md transition-shadow duration-300 border border-slate-100 text-black flex-1 flex flex-col">
+                {/* ส่วนหัวสำหรับสลับ Tab */}
+                <div className="px-6 md:px-10 pt-6 md:pt-8 flex items-center space-x-6 overflow-x-auto hide-scrollbar border-b border-slate-100">
+                  <button
+                    onClick={() => setActiveTab("profile")}
+                    className={`pb-4 font-bold transition-all text-sm md:text-base border-b-2 whitespace-nowrap -mb-[1px] ${
+                      activeTab === "profile" ? "text-[#8200DB] border-[#8200DB]" : "text-slate-400 border-transparent hover:text-slate-600"
+                    }`}
+                  >
+                    Account Settings
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("billing")}
+                    className={`pb-4 font-bold transition-all text-sm md:text-base border-b-2 whitespace-nowrap -mb-[1px] ${
+                      activeTab === "billing" ? "text-[#8200DB] border-[#8200DB]" : "text-slate-400 border-transparent hover:text-slate-600"
+                    }`}
+                  >
+                    Billing History
+                  </button>
                 </div>
 
-                <form className="space-y-6" onSubmit={handleSubmit}>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Full Name */}
-                    <div className="space-y-2.5 group">
-                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1 group-focus-within:text-[#8200DB] transition-colors">
-                        Full Name
-                      </label>
-                      <div className="relative">
-                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#8200DB] transition-colors">
-                          <User size={16} />
-                        </div>
-                        <input 
-                          name="name" type="text" value={formData.name} onChange={handleChange} 
-                          className="w-full pl-11 pr-5 py-3 bg-slate-50 border border-slate-100 rounded-xl outline-none hover:border-purple-200 focus:ring-4 focus:ring-purple-500/10 focus:border-purple-400 focus:bg-white text-slate-900 text-sm font-semibold transition-all shadow-sm" 
-                          placeholder="Enter your full name"
-                        />
+                {/* เนื้อหาหลักตาม Tab ที่เลือก */}
+                <div key={activeTab} className="p-6 md:p-10 flex-1 flex flex-col animate-in fade-in slide-in-from-bottom-2 duration-500">
+                {activeTab === "profile" ? (
+                  <>
+                    <div className="mb-8 pb-5 border-b border-slate-100 flex items-center justify-between">
+                      <div>
+                        <h2 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight mb-1.5">Account Settings</h2>
+                        <p className="text-slate-500 text-xs md:text-sm font-medium">Manage your personal information and billing preferences.</p>
+                      </div>
+                      <div className="hidden md:flex p-3 bg-purple-50 rounded-2xl text-[#8200DB]">
+                        <Settings size={24} />
                       </div>
                     </div>
 
-                    {/* Email */}
-                    <div className="space-y-2.5">
-                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">
-                        Email Address
-                      </label>
-                      <div className="relative">
-                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-                          <Mail size={16} />
+                    <form className="space-y-6" onSubmit={handleSubmit}>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Full Name */}
+                        <div className="space-y-2.5 group">
+                          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1 group-focus-within:text-[#8200DB] transition-colors">
+                            Full Name
+                          </label>
+                          <div className="relative">
+                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#8200DB] transition-colors">
+                              <User size={16} />
+                            </div>
+                            <input 
+                              name="name" type="text" value={formData.name} onChange={handleChange} 
+                              className="w-full pl-11 pr-5 py-3 bg-slate-50 border border-slate-100 rounded-xl outline-none hover:border-purple-200 focus:ring-4 focus:ring-purple-500/10 focus:border-purple-400 focus:bg-white text-slate-900 text-sm font-semibold transition-all shadow-sm" 
+                              placeholder="Enter your full name"
+                            />
+                          </div>
                         </div>
-                        <input 
-                          type="email" value={formData.email} disabled 
-                          className="w-full pl-11 pr-5 py-3 bg-slate-100 border border-slate-100 rounded-xl text-slate-500 text-sm cursor-not-allowed font-semibold opacity-70 shadow-sm" 
-                        />
-                      </div>
-                      <p className="text-[9px] text-slate-400 font-bold ml-1.5">* Email cannot be changed.</p>
-                    </div>
 
-                    {/* Bank Name Dropdown */}
-                    <div className="space-y-2.5 group">
-                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1 group-focus-within:text-[#8200DB] transition-colors">
-                        Bank Name
-                      </label>
-                      <div className="relative">
-                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#8200DB] transition-colors">
-                          <Landmark size={16} />
+                        {/* Email */}
+                        <div className="space-y-2.5">
+                          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">
+                            Email Address
+                          </label>
+                          <div className="relative">
+                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                              <Mail size={16} />
+                            </div>
+                            <input 
+                              type="email" value={formData.email} disabled 
+                              className="w-full pl-11 pr-5 py-3 bg-slate-100 border border-slate-100 rounded-xl text-slate-500 text-sm cursor-not-allowed font-semibold opacity-70 shadow-sm" 
+                            />
+                          </div>
+                          <p className="text-[9px] text-slate-400 font-bold ml-1.5">* Email cannot be changed.</p>
                         </div>
-                        <select 
-                          name="bankName" value={formData.bankName} onChange={(e) => setFormData({...formData, bankName: e.target.value})}
-                          className="w-full appearance-none pl-11 pr-10 py-3 bg-slate-50 border border-slate-100 rounded-xl outline-none hover:border-purple-200 focus:ring-4 focus:ring-purple-500/10 focus:border-purple-400 focus:bg-white text-slate-900 text-sm font-semibold transition-all cursor-pointer shadow-sm"
+
+                        {/* Bank Name Dropdown */}
+                        <div className="space-y-2.5 group">
+                          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1 group-focus-within:text-[#8200DB] transition-colors">
+                            Bank Name
+                          </label>
+                          <div className="relative">
+                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#8200DB] transition-colors">
+                              <Landmark size={16} />
+                            </div>
+                            <select 
+                              name="bankName" value={formData.bankName} onChange={(e) => setFormData({...formData, bankName: e.target.value})}
+                              className="w-full appearance-none pl-11 pr-10 py-3 bg-slate-50 border border-slate-100 rounded-xl outline-none hover:border-purple-200 focus:ring-4 focus:ring-purple-500/10 focus:border-purple-400 focus:bg-white text-slate-900 text-sm font-semibold transition-all cursor-pointer shadow-sm"
+                            >
+                              <option value="" disabled>Select Bank</option>
+                              <option value="KBANK">Kasikornbank (KBANK)</option>
+                              <option value="SCB">Siam Commercial Bank (SCB)</option>
+                              <option value="BBL">Bangkok Bank (BBL)</option>
+                              <option value="KTB">Krungthai Bank (KTB)</option>
+                              <option value="BAY">Bank of Ayudhya (Krungsri)</option>
+                              <option value="TTB">TMBThanachart (TTB)</option>
+                              <option value="GSB">Government Savings Bank (GSB)</option>
+                            </select>
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                              <ChevronDown size={16} />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Bank Account Number */}
+                        <div className="space-y-2.5 group">
+                          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1 group-focus-within:text-[#8200DB] transition-colors">
+                            Account Number
+                          </label>
+                          <div className="relative">
+                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#8200DB] transition-colors">
+                              <CreditCard size={16} />
+                            </div>
+                            <input 
+                              name="accountNumber" type="text" value={formData.accountNumber} onChange={handleChange} 
+                              className="w-full pl-11 pr-5 py-3 bg-slate-50 border border-slate-100 rounded-xl outline-none hover:border-purple-200 focus:ring-4 focus:ring-purple-500/10 focus:border-purple-400 focus:bg-white text-slate-900 text-sm font-semibold transition-all shadow-sm" 
+                              placeholder="e.g. 123-4-56789-0"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="pt-8 mt-auto border-t border-slate-100 flex flex-col-reverse sm:flex-row items-center justify-end gap-3">
+                        <button 
+                          type="button" onClick={() => router.back()} 
+                          className="w-full sm:w-auto px-6 py-3 text-slate-500 font-bold text-xs hover:bg-slate-200 hover:text-slate-700 rounded-xl transition-all uppercase tracking-wider"
                         >
-                          <option value="" disabled>Select Bank</option>
-                          <option value="KBANK">Kasikornbank (KBANK)</option>
-                          <option value="SCB">Siam Commercial Bank (SCB)</option>
-                          <option value="BBL">Bangkok Bank (BBL)</option>
-                          <option value="KTB">Krungthai Bank (KTB)</option>
-                          <option value="BAY">Bank of Ayudhya (Krungsri)</option>
-                          <option value="TTB">TMBThanachart (TTB)</option>
-                          <option value="GSB">Government Savings Bank (GSB)</option>
-                        </select>
-                        <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                          <ChevronDown size={16} />
-                        </div>
+                          Cancel
+                        </button>
+                        <button 
+                          type="submit" disabled={isUpdating} 
+                          className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-[#8200DB] to-[#5837F6] hover:from-[#7111B6] hover:to-[#4C28D9] text-white font-bold text-xs rounded-xl shadow-md hover:shadow-lg hover:shadow-purple-200 flex items-center justify-center gap-2.5 transition-all active:scale-95 uppercase tracking-wider disabled:opacity-70 disabled:cursor-not-allowed"
+                        >
+                          {isUpdating ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                          {isUpdating ? 'Saving...' : 'Save Changes'}
+                        </button>
+                      </div>
+                    </form>
+                  </>
+                ) : (
+                  <>
+                    <div className="mb-8 pb-5 border-b border-slate-100 flex items-center justify-between">
+                      <div>
+                        <h2 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight mb-1.5">Billing History</h2>
+                        <p className="text-slate-500 text-xs md:text-sm font-medium">View your past transactions and pending payments.</p>
                       </div>
                     </div>
-
-                    {/* Bank Account Number */}
-                    <div className="space-y-2.5 group">
-                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1 group-focus-within:text-[#8200DB] transition-colors">
-                        Account Number
-                      </label>
-                      <div className="relative">
-                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#8200DB] transition-colors">
-                          <CreditCard size={16} />
-                        </div>
-                        <input 
-                          name="accountNumber" type="text" value={formData.accountNumber} onChange={handleChange} 
-                          className="w-full pl-11 pr-5 py-3 bg-slate-50 border border-slate-100 rounded-xl outline-none hover:border-purple-200 focus:ring-4 focus:ring-purple-500/10 focus:border-purple-400 focus:bg-white text-slate-900 text-sm font-semibold transition-all shadow-sm" 
-                          placeholder="e.g. 123-4-56789-0"
-                        />
-                      </div>
+                    <div className="space-y-4 flex-1">
+                      {billingHistory.length > 0 ? (
+                        billingHistory.map((item: any, index: number) => (
+                          <div key={item.id || index} className={`flex items-center justify-between p-5 border rounded-2xl ${item.status === 'PENDING' ? 'bg-orange-50 border-orange-100' : 'bg-slate-50 border-slate-100'}`}>
+                            <div>
+                              <p className="font-bold text-slate-800">{item.subscription?.name || availablePlans.find(p => p.id === item.subscriptionId)?.name || `Plan #${item.subscriptionId}`}</p>
+                              <p className="text-xs text-slate-500 mt-1">TxID: #{item.id} • {new Date(item.createdAt || Date.now()).toLocaleDateString()}</p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className={`text-[10px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest ${item.status === 'PENDING' ? 'text-orange-600 bg-orange-200/50' : 'text-emerald-600 bg-emerald-200/50'}`}>
+                                {item.status}
+                              </span>
+                              {item.status === 'PENDING' && (
+                                <button 
+                                  onClick={() => {
+                                    setSelectedPlanId(item.subscriptionId || 0);
+                                    setIsPaymentModalOpen(true);
+                                  }}
+                                  className="text-xs bg-[#8200DB] text-white px-4 py-2 rounded-lg font-bold shadow-md hover:bg-purple-700 transition-colors"
+                                >
+                                  Pay Now
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                         <div className="text-center py-12">
+                            <p className="text-slate-400 font-bold mb-4">No billing history found.</p>
+                         </div>
+                      )}
                     </div>
-                  </div>
-
-                  <div className="pt-8 mt-auto border-t border-slate-100 flex flex-col-reverse sm:flex-row items-center justify-end gap-3">
-                    <button 
-                      type="button" onClick={() => router.back()} 
-                      className="w-full sm:w-auto px-6 py-3 text-slate-500 font-bold text-xs hover:bg-slate-200 hover:text-slate-700 rounded-xl transition-all uppercase tracking-wider"
-                    >
-                      Cancel
-                    </button>
-                    <button 
-                      type="submit" disabled={isUpdating} 
-                      className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-[#8200DB] to-[#5837F6] hover:from-[#7111B6] hover:to-[#4C28D9] text-white font-bold text-xs rounded-xl shadow-md hover:shadow-lg hover:shadow-purple-200 flex items-center justify-center gap-2.5 transition-all active:scale-95 uppercase tracking-wider disabled:opacity-70 disabled:cursor-not-allowed"
-                    >
-                      {isUpdating ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                      {isUpdating ? 'Saving...' : 'Save Changes'}
-                    </button>
-                  </div>
-                </form>
+                  </>
+                )}
               </div>
+            </div>
             </div>
           </div>
         </div>
       </main>
+
+      {/* Payment Modal สำหรับจ่ายรายการที่ค้าง (Pending) */}
+      {isPaymentModalOpen && (
+        <PaymentModal
+          isOpen={isPaymentModalOpen}
+          onClose={() => setIsPaymentModalOpen(false)}
+          onSuccess={() => {
+            setIsPaymentModalOpen(false);
+            fetchData(); // ดึงข้อมูลใหม่เพื่ออัปเดตสเตตัสรายการที่ชำระสำเร็จ
+          }}
+          planId={selectedPlanId}
+        />
+      )}
     </div>
   );
 }

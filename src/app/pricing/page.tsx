@@ -3,25 +3,29 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import axios from "axios";
 import Sidebar from "@/components/Sidebar";
-import { Loader2, ArrowRight, Package, Rocket, Gem, Menu, Check } from "lucide-react";
+import { Loader2, ArrowRight, Package, Rocket, Gem, Menu, Check, AlertTriangle } from "lucide-react";
 import DashboardHeader from "@/components/Header";
 import CheckoutSummary from "@/components/CheckoutSummary";
 import PaymentModal from "@/components/PaymentModal";
 import SuccessModal from "@/components/SuccessModal";
 import ProfileDropdown from "@/components/ProfileDropdown";
+import { useRouter } from "next/navigation";
 
 const API_URL = "https://trading-bot-api-sigma.vercel.app";
 
 export default function PricingPage() {
+  const router = useRouter();
   // --- ส่วนที่ 1: การจัดการ States ---
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isCheckingPending, setIsCheckingPending] = useState(false);
   
   // States สำหรับควบคุมการเปิด/ปิดของ Modal แต่ละขั้นตอน
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
+  const [isPendingAlertOpen, setIsPendingAlertOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -50,13 +54,32 @@ export default function PricingPage() {
   }, [subscriptions, billingCycle]);
 
   // --- ส่วนที่ 4: Logic การเลือกแผนและการตรวจสอบสิทธิ์ ---
-  const handleSelectPlan = (sub: any) => {
+  const handleSelectPlan = async (sub: any) => {
     const token = localStorage.getItem("token");
     
     // ตรวจสอบว่าผู้ใช้ Login หรือยังก่อนจะดำเนินการชำระเงิน
     if (!token) {
       alert("Please login to continue with the purchase.");
       return;
+    }
+
+    setIsCheckingPending(true);
+    try {
+      // ✅ เช็คประวัติการชำระเงินก่อนว่ามี PENDING ค้างอยู่หรือไม่
+      const historyRes = await axios.get(`${API_URL}/payments/history`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const historyData = Array.isArray(historyRes.data) ? historyRes.data : (historyRes.data?.data || []);
+      const hasPending = historyData.some((item: any) => item.status === "PENDING");
+
+      if (hasPending) {
+        setIsPendingAlertOpen(true);
+        return; // บล็อกการไปหน้า Checkout
+      }
+    } catch (error) {
+      console.error("Failed to check payment history:", error);
+    } finally {
+      setIsCheckingPending(false);
     }
 
     // บันทึกข้อมูลแผนที่เลือกลงใน State เพื่อส่งต่อให้ Modal
@@ -227,8 +250,13 @@ export default function PricingPage() {
                         ? "bg-white text-[#1E1B4B] hover:bg-purple-50 shadow-white/20"
                         : "bg-[#1E1B4B] text-white hover:bg-[#8B5CF6] shadow-purple-100"
                     }`}
+                    disabled={isCheckingPending}
                   >
-                    Select Plan <ArrowRight size={18} className="group-hover/btn:translate-x-1 transition-transform" />
+                    {isCheckingPending ? (
+                      <Loader2 className="animate-spin" size={18} />
+                    ) : (
+                      <>Select Plan <ArrowRight size={18} className="group-hover/btn:translate-x-1 transition-transform" /></>
+                    )}
                   </button>
                 </div>
               );
@@ -269,6 +297,38 @@ export default function PricingPage() {
             planName={selectedPlan.name}
           />
         </>
+      )}
+
+      {/* Modal แจ้งเตือนกรณีมีรายการค้างชำระ (Pending Payment) */}
+      {isPendingAlertOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 text-black">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsPendingAlertOpen(false)}></div>
+          <div className="relative bg-white rounded-[2.5rem] p-10 max-w-sm w-full shadow-2xl animate-in zoom-in duration-200">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-orange-50 text-orange-500 rounded-full flex items-center justify-center mb-6">
+                <AlertTriangle size={32} />
+              </div>
+              <h3 className="text-2xl font-black mb-3">Pending Payment</h3>
+              <p className="text-slate-500 text-sm font-medium mb-8 leading-relaxed">
+                You have an incomplete payment transaction. Please complete or cancel the pending payment before purchasing a new plan.
+              </p>
+              <div className="flex flex-col gap-3 w-full">
+                <button 
+                  onClick={() => router.push('/manage-account?tab=billing')} 
+                  className="w-full py-4 bg-[#6A0DAD] text-white font-black rounded-2xl hover:bg-[#5D0CA1] shadow-lg shadow-purple-200 transition-all text-xs uppercase tracking-widest active:scale-95"
+                >
+                  Go to Billing History
+                </button>
+                <button 
+                  onClick={() => setIsPendingAlertOpen(false)} 
+                  className="w-full py-4 bg-slate-100 text-slate-500 font-black rounded-2xl hover:bg-slate-200 transition-all text-xs uppercase tracking-widest"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
