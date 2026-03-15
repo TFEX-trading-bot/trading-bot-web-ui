@@ -1,6 +1,6 @@
 "use client";
 
-import { X, CheckCircle2, Circle } from "lucide-react";
+import { X, CheckCircle2, Circle, Eye, EyeOff } from "lucide-react";
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { useRouter } from "next/navigation";
@@ -26,6 +26,9 @@ export default function AuthModal({ isOpen, onClose, mode, setMode }: AuthModalP
   
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // --- เกณฑ์ความปลอดภัยรหัสผ่าน ---
   const requirements = [
@@ -41,6 +44,8 @@ export default function AuthModal({ isOpen, onClose, mode, setMode }: AuthModalP
     if (isOpen) {
       document.body.style.overflow = "hidden";
       setError(""); 
+      setShowPassword(false);
+      setShowConfirmPassword(false);
     } else {
       document.body.style.overflow = "auto";
     }
@@ -125,92 +130,120 @@ export default function AuthModal({ isOpen, onClose, mode, setMode }: AuthModalP
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 text-slate-900 font-sans">
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose}></div>
 
-      <div className="relative w-full max-w-md bg-white border border-slate-100 rounded-[2.5rem] shadow-xl p-10 animate-in fade-in zoom-in duration-300">
+      <div className="relative w-full max-w-md bg-white border border-slate-100 rounded-3xl shadow-xl p-6 sm:p-8 animate-in fade-in zoom-in duration-300 max-h-[95vh] overflow-y-auto">
         <button onClick={onClose} className="absolute top-6 right-6 text-slate-400 hover:text-slate-900 transition-colors">
           <X className="w-6 h-6" />
         </button>
 
-        <h2 className="text-3xl font-black mb-2 tracking-tight">
+        <h2 className="text-2xl sm:text-3xl font-black mb-2 tracking-tight">
           {mode === "login" ? "Welcome Back" : "Create Account"}
         </h2>
-        <p className="text-slate-500 mb-8 text-sm font-medium leading-relaxed">
+        <p className="text-slate-500 mb-6 text-sm font-medium leading-relaxed">
           {mode === "login" ? "Log in to manage your portfolio" : "Start trading for free today"}
         </p>
 
         {error && (
-          <div className="bg-red-50 border border-red-100 text-red-500 text-xs p-3 rounded-xl mb-6 text-center font-bold italic">
+          <div className="bg-red-50 border border-red-100 text-red-500 text-xs p-3 rounded-lg mb-5 text-center font-bold italic">
             {error}
           </div>
         )}
 
-        <form className="space-y-5" onSubmit={mode === "login" ? handleLogin : handleRegister}>
+        <form className="space-y-4" onSubmit={mode === "login" ? handleLogin : handleRegister}>
           {mode === "register" && (
             <div>
-              <label className="block text-sm font-bold text-slate-800 mb-1.5 ml-1">Full Name</label>
+              <label className="block text-xs sm:text-sm font-bold text-slate-800 mb-1 ml-1">Full Name</label>
               <input 
                 type="text" required value={name} onChange={(e) => setName(e.target.value)} 
-                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-purple-200 transition-all" 
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-purple-200 focus:bg-white transition-all" 
                 placeholder="Your Name" 
               />
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-bold text-slate-800 mb-1.5 ml-1">Email</label>
+            <label className="block text-xs sm:text-sm font-bold text-slate-800 mb-1 ml-1">Email</label>
             <input 
               type="email" required value={email} onChange={(e) => setEmail(e.target.value)} 
-              className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-purple-200 transition-all" 
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-purple-200 focus:bg-white transition-all" 
               placeholder="name@example.com" 
             />
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-slate-800 mb-1.5 ml-1">Password</label>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-purple-200 transition-all"
-              placeholder="••••••••"
-            />
+            <label className="block text-xs sm:text-sm font-bold text-slate-800 mb-1 ml-1">Password</label>
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-4 pr-10 py-2 text-sm outline-none focus:ring-2 focus:ring-purple-200 focus:bg-white transition-all"
+                placeholder="••••••••"
+              />
+              <button 
+                type="button" 
+                onMouseDown={() => setShowPassword(true)}
+                onMouseUp={() => setShowPassword(false)}
+                onMouseLeave={() => setShowPassword(false)}
+                onTouchStart={() => setShowPassword(true)}
+                onTouchEnd={() => setShowPassword(false)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
 
           {mode === "register" && password.length > 0 && (
-            <div className="bg-slate-50 p-4 rounded-xl space-y-2 border border-slate-100 font-medium">
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Security Checklist</p>
-              {requirements.map((req, i) => (
-                <div key={i} className={`flex items-center gap-2 text-xs transition-colors ${req.test(password) ? "text-emerald-500 font-bold" : "text-slate-400"}`}>
-                  {req.test(password) ? <CheckCircle2 size={14} /> : <Circle size={14} />}
-                  {req.label}
-                </div>
-              ))}
+            <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 font-medium">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Security Checklist</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {requirements.map((req, i) => (
+                  <div key={i} className={`flex items-center gap-1.5 text-[11px] sm:text-xs transition-colors ${req.test(password) ? "text-emerald-500 font-bold" : "text-slate-400"}`}>
+                    {req.test(password) ? <CheckCircle2 size={14} /> : <Circle size={14} />}
+                    {req.label}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
           {mode === "register" && (
             <div>
-              <label className="block text-sm font-bold text-slate-800 mb-1.5 ml-1">Confirm Password</label>
-              <input 
-                type="password" 
-                required 
-                value={confirmPassword} 
-                onChange={(e) => setConfirmPassword(e.target.value)} 
-                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-purple-200 transition-all"
-                placeholder="••••••••" 
-              />
+              <label className="block text-xs sm:text-sm font-bold text-slate-800 mb-1 ml-1">Confirm Password</label>
+              <div className="relative">
+                <input 
+                  type={showConfirmPassword ? "text" : "password"}
+                  required 
+                  value={confirmPassword} 
+                  onChange={(e) => setConfirmPassword(e.target.value)} 
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-4 pr-10 py-2 text-sm outline-none focus:ring-2 focus:ring-purple-200 focus:bg-white transition-all"
+                  placeholder="••••••••" 
+                />
+                <button 
+                  type="button" 
+                  onMouseDown={() => setShowConfirmPassword(true)}
+                  onMouseUp={() => setShowConfirmPassword(false)}
+                  onMouseLeave={() => setShowConfirmPassword(false)}
+                  onTouchStart={() => setShowConfirmPassword(true)}
+                  onTouchEnd={() => setShowConfirmPassword(false)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
           )}
 
           <button 
             type="submit" disabled={loading} 
-            className={`w-full bg-[#6A0DAD] hover:bg-[#5D0CA1] text-white font-black py-4 rounded-xl shadow-lg shadow-purple-100 transition-all active:scale-95 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`w-full bg-[#6A0DAD] hover:bg-[#5D0CA1] text-white font-black py-3 rounded-xl shadow-lg shadow-purple-100 transition-all active:scale-95 text-sm mt-2 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             {loading ? "Processing..." : mode === "login" ? "Log In" : "Sign Up"}
           </button>
         </form>
 
-        <div className="mt-8 text-center text-sm text-slate-500 font-medium">
+        <div className="mt-6 text-center text-sm text-slate-500 font-medium">
           {mode === "login" ? (
             <>Don't have an account? <button onClick={() => setMode("register")} className="text-[#6A0DAD] font-bold hover:underline">Sign Up</button></>
           ) : (
