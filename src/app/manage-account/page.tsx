@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, Suspense } from "react";
 import Sidebar from "@/components/Sidebar";
 import { CreditCard, User, Mail, Landmark, ShieldCheck, Loader2, Menu, Bot, Settings, Save, ChevronDown } from "lucide-react";
 import DashboardHeader from "@/components/Header";
@@ -12,7 +12,8 @@ import axios from "axios";
 // ✅ เชื่อมต่อกับ API บน Vercel
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://trading-bot-api-sigma.vercel.app";
 
-export default function ProfilePage() {
+// ✅ เปลี่ยนจาก export default ProfilePage เป็น Component ธรรมดา
+function ProfileContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
@@ -558,5 +559,20 @@ export default function ProfilePage() {
         />
       )}
     </div>
+  );
+}
+
+// ✅ สร้าง Page Component หลักที่ครอบด้วย Suspense
+export default function ProfilePage() {
+  return (
+    <Suspense 
+      fallback={
+        <div className="h-screen w-full flex items-center justify-center bg-white">
+          <Loader2 className="animate-spin text-[#8200DB]" size={40} />
+        </div>
+      }
+    >
+      <ProfileContent />
+    </Suspense>
   );
 }
