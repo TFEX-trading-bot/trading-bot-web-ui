@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { UserCircle, Settings, LogOut, ChevronDown } from "lucide-react";
+import { UserCircle, Settings, LogOut, ChevronDown, CreditCard } from "lucide-react";
 
 export default function ProfileDropdown() {
   const [isOpen, setIsOpen] = useState(false);
@@ -72,13 +72,23 @@ export default function ProfileDropdown() {
 
             {/* ✅ เงื่อนไข: ถ้าไม่ใช่ admin ถึงจะแสดงเมนู Manage Account */}
             {userRole?.toLowerCase() !== "admin" && (
-              <button
-                onClick={() => { router.push("/manage-account"); setIsOpen(false); }}
-                className="flex w-full items-center gap-3 rounded-2xl px-5 py-4 text-sm font-bold text-slate-600 transition-colors hover:bg-purple-50 hover:text-[#6A0DAD]"
-              >
-                <Settings size={18} />
-                Manage Account
-              </button>
+              <>
+                <button
+                  onClick={() => { router.push("/manage-account"); setIsOpen(false); }}
+                  className="flex w-full items-center gap-3 rounded-2xl px-5 py-3 text-sm font-bold text-slate-600 transition-colors hover:bg-purple-50 hover:text-[#6A0DAD]"
+                >
+                  <Settings size={18} />
+                  Account Settings
+                </button>
+                
+                <button
+                  onClick={() => { router.push("/manage-account?tab=billing"); setIsOpen(false); }}
+                  className="flex w-full items-center gap-3 rounded-2xl px-5 py-3 text-sm font-bold text-slate-600 transition-colors hover:bg-purple-50 hover:text-[#6A0DAD]"
+                >
+                  <CreditCard size={18} />
+                  Billing History
+                </button>
+              </>
             )}
 
             {userRole?.toLowerCase() !== "admin" && <div className="my-2 border-t border-slate-50"></div>}

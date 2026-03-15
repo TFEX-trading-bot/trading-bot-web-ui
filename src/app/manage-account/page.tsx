@@ -5,7 +5,7 @@ import Sidebar from "@/components/Sidebar";
 import { CreditCard, User, Mail, Landmark, ShieldCheck, Loader2, Menu, Bot, Settings, Save, ChevronDown } from "lucide-react";
 import DashboardHeader from "@/components/Header";
 import ProfileDropdown from "@/components/ProfileDropdown";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import PaymentModal from "@/components/PaymentModal";
 import axios from "axios";
 
@@ -14,6 +14,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://trading-bot-api-sigm
 
 export default function ProfilePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
   const [confirmedName, setConfirmedName] = useState("");
@@ -142,15 +143,17 @@ export default function ProfilePage() {
 
   useEffect(() => {
     fetchData();
-
-    // ✅ อ่านค่าจาก URL เพื่อสลับมาเปิดแท็บ Billing ให้อัตโนมัติ
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("tab") === "billing") {
-        setActiveTab("billing");
-      }
-    }
   }, [fetchData]);
+
+  // ✅ ตรวจจับการเปลี่ยนแปลงของ URL Parameter (เช่น ?tab=billing) แบบ Real-time
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "billing") {
+      setActiveTab("billing");
+    } else {
+      setActiveTab("profile");
+    }
+  }, [searchParams]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
