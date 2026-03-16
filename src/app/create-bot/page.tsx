@@ -33,12 +33,14 @@ export default function CreateBotPage() {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState("Market");
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    
+    // ✅ แก้ไข: ลบการประกาศซ้ำ (ลบอันที่อยู่บรรทัด 41 และ 45 ออกเหลือเพียงอันเดียว)
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false); 
+    
     const allSymbols = useMemo(() => generateMarketSymbols(), []);
     const [filteredSymbols, setFilteredSymbols] = useState<string[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const searchRef = useRef<HTMLDivElement>(null);
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     // --- States ---
     const [botModel, setBotModel] = useState<"AI" | "Policy">("Policy");
@@ -69,7 +71,6 @@ export default function CreateBotPage() {
     }, []);
 
     // --- 🔐 Reset Verification Helper ---
-    // เรียกใช้ฟังก์ชันนี้เมื่อมีการแก้ข้อมูล Authentication
     const resetVerification = () => {
         if (isVerified) {
             setIsVerified(false);
@@ -133,9 +134,10 @@ export default function CreateBotPage() {
         e.preventDefault();
         if (activeTab === "Backtest") { handleRunBacktest(); return; }
 
-        // Validation Logic
+        // ✅ Validation Check in English
         const isBasicValid = basicInfo.stock && basicInfo.assigned_capital;
         const isAuthValid = auth.broker_id && auth.app_code && auth.account_no && auth.pin && auth.app_id && auth.app_secret;
+        
         if (!isBasicValid || !isAuthValid) {
             alert("❌ Deployment Failed: Please fill in all required fields in the form.");
             return;
@@ -160,21 +162,26 @@ export default function CreateBotPage() {
 
     return (
         <div className="flex min-h-screen bg-[#FDFCFE] font-sans text-slate-800 relative">
+            {/* Sidebar Fix: Sticky prevents cutoff */}
             <aside className={`fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 md:sticky md:top-0 md:h-screen md:translate-x-0 ${isSidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"}`}><Sidebar /></aside>
             
             <main className="flex-1 flex flex-col min-w-0 bg-white">
+                <div className="md:hidden flex items-center justify-between p-4 border-b sticky top-0 z-30 bg-white">
+                    <button onClick={() => setIsSidebarOpen(true)} className="p-2 rounded-xl bg-purple-50 text-[#8200DB]"><Menu size={24} /></button>
+                    <ProfileDropdown />
+                </div>
                 <div className="hidden md:block"><DashboardHeader title="Create Your Trading Bot" /></div>
 
                 <div className="flex-grow p-6 lg:p-8 max-w-5xl w-full mx-auto space-y-10">
                     <div className="flex justify-center">
                         <div className="flex bg-slate-100 p-1.5 rounded-full shadow-inner gap-1">
-                            <button type="button" onClick={() => setActiveTab("Market")} className={`px-10 py-2.5 rounded-full text-xs font-black uppercase tracking-widest transition-all duration-300 ${activeTab === "Market" ? "bg-[#8B5CF6] text-white shadow-md" : "text-slate-500"}`}>Market</button>
-                            <button type="button" onClick={() => setActiveTab("Backtest")} className={`px-10 py-2.5 rounded-full text-xs font-black uppercase tracking-widest transition-all duration-300 ${activeTab === "Backtest" ? "bg-[#8B5CF6] text-white shadow-md" : "text-slate-500"}`}>Backtest</button>
+                            <button type="button" onClick={() => setActiveTab("Market")} className={`px-10 py-2.5 rounded-full text-xs font-black uppercase transition-all duration-300 ${activeTab === "Market" ? "bg-[#8B5CF6] text-white shadow-md" : "text-slate-500"}`}>Market</button>
+                            <button type="button" onClick={() => setActiveTab("Backtest")} className={`px-10 py-2.5 rounded-full text-xs font-black uppercase transition-all duration-300 ${activeTab === "Backtest" ? "bg-[#8B5CF6] text-white shadow-md" : "text-slate-500"}`}>Backtest</button>
                         </div>
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-12">
-                        {/* Stock & Amount */}
+                        {/* Stock Section */}
                         <section className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="space-y-2 relative" ref={searchRef}>
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Stock</label>
@@ -184,7 +191,7 @@ export default function CreateBotPage() {
                                     {showSuggestions && (<div className="absolute z-50 w-full bg-white border rounded-xl shadow-2xl mt-1 max-h-40 overflow-y-auto">{filteredSymbols.map(s => <div key={s} onClick={() => { setBasicInfo({...basicInfo, stock: s}); setShowSuggestions(false); }} className="px-4 py-2 hover:bg-purple-50 cursor-pointer font-bold text-sm border-b last:border-0">{s}</div>)}</div>)}
                                 </div>
                             </div>
-                            <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Max investing amount</label><input type="number" onChange={(e) => setBasicInfo({...basicInfo, assigned_capital: e.target.value})} className="w-full p-4 bg-slate-100 rounded-xl outline-none font-bold text-slate-900" /></div>
+                            <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Max investing amount</label><input type="number" onChange={(e) => setBasicInfo({...basicInfo, assigned_capital: e.target.value})} className="w-full p-4 bg-slate-100 rounded-xl outline-none font-bold text-slate-900" placeholder="0" /></div>
                         </section>
 
                         {/* Bot Configuration */}
@@ -198,7 +205,7 @@ export default function CreateBotPage() {
                             </div>
                         </section>
 
-                        {/* Authentication & Verify */}
+                        {/* Authentication */}
                         <section className="space-y-8">
                             <h3 className="text-lg font-black text-slate-800 tracking-tight">Authentication</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -206,7 +213,7 @@ export default function CreateBotPage() {
                                 <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Application Secret</label><input type="password" value={auth.app_secret} onChange={e => handleAuthChange('app_secret', e.target.value)} className="w-full p-4 bg-slate-100 rounded-xl outline-none font-bold text-sm" /></div>
                             </div>
                             <div className="flex flex-col sm:flex-row items-center gap-4 mt-2">
-                                <button type="button" onClick={handleVerify} disabled={isVerifying} className={`px-10 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-lg transition-all flex items-center gap-2 ${isVerified ? "bg-emerald-500 text-white shadow-emerald-100" : "bg-[#8B5CF6] text-white shadow-purple-100 active:scale-95"}`}>
+                                <button type="button" onClick={handleVerify} disabled={isVerifying} className={`px-10 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-lg transition-all flex items-center gap-2 ${isVerified ? "bg-emerald-500 text-white" : "bg-[#8B5CF6] text-white active:scale-95"}`}>
                                     {isVerifying ? <Loader2 className="animate-spin" size={16} /> : (isVerified ? <CheckCircle2 size={16} /> : null)}
                                     {isVerified ? "Verified" : "Verify Credential & Balance"}
                                 </button>
@@ -233,6 +240,7 @@ export default function CreateBotPage() {
 
                         {botModel === "Policy" && (
                             <div className="space-y-10 animate-in fade-in slide-in-from-top-4 duration-500">
+                                {/* Advance Setting */}
                                 <div className="space-y-5">
                                     <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">Advance Setting <Zap size={18} className="text-amber-500" /></h3>
                                     <div className="bg-white border rounded-3xl p-8 shadow-sm space-y-6">
@@ -240,7 +248,7 @@ export default function CreateBotPage() {
                                         {rules.map((rule) => (
                                             <div key={rule.id} className="p-6 border rounded-2xl bg-slate-50/50 space-y-4 relative">
                                                 {rule.conditions.map((cond: any, cIdx: number) => (
-                                                    <div key={cond.id} className="grid grid-cols-4 gap-6 items-center">
+                                                    <div key={cond.id} className="grid grid-cols-4 gap-4 items-center">
                                                         <div className="flex items-center gap-2 bg-white p-1.5 rounded-xl border h-12 shadow-sm">
                                                             <select value={cond.indicator} onChange={e => updateCondition(rule.id, cond.id, 'indicator', e.target.value)} className="appearance-none w-full bg-transparent font-bold text-xs outline-none px-2">{INDICATOR_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select>
                                                             <input value={cond.period} onChange={e => updateCondition(rule.id, cond.id, 'period', e.target.value)} className="w-10 text-center text-xs font-bold bg-slate-50 rounded" placeholder="Pd" />
@@ -254,29 +262,29 @@ export default function CreateBotPage() {
                                                         </div>
                                                         <div className="flex justify-end gap-3 items-center">
                                                             <select value={rule.action} onChange={(e) => updateRuleAction(rule.id, e.target.value)} className="font-black text-sm outline-none px-2 bg-transparent" style={{ color: rule.action === 'BUY' ? '#10B981' : '#EF4444' }}><option value="BUY">BUY</option><option value="SELL">SELL</option></select>
-                                                            <button type="button" onClick={() => removeRuleGroup(rule.id)} className="text-slate-200 hover:text-rose-500"><Trash2 size={18} /></button>
+                                                            <button type="button" onClick={() => removeRuleGroup(rule.id)} className="text-slate-200 hover:text-rose-500 transition-colors"><Trash2 size={18} /></button>
                                                         </div>
                                                     </div>
                                                 ))}
                                                 <div className="flex gap-4 pt-1"><div className="flex bg-white rounded-full p-1 border shadow-sm"><button type="button" onClick={() => setRuleLogic(rule.id, 'AND')} className={`px-6 py-1 rounded-full text-[10px] font-black transition-all ${rule.logic === 'AND' ? 'bg-[#8B5CF6] text-white' : 'text-slate-400'}`}>AND</button><button type="button" onClick={() => setRuleLogic(rule.id, 'OR')} className={`px-6 py-1 rounded-full text-[10px] font-black transition-all ${rule.logic === 'OR' ? 'bg-[#8B5CF6] text-white' : 'text-slate-400'}`}>OR</button></div><button type="button" onClick={() => addSubRule(rule.id)} className="text-[10px] font-black text-[#8B5CF6] hover:underline uppercase tracking-widest">+ ADD CONDITION</button></div>
                                             </div>
                                         ))}
-                                        <button type="button" onClick={addRuleGroup} className="w-full py-5 border-2 border-dashed rounded-[2rem] text-slate-400 font-bold text-xs uppercase flex items-center justify-center gap-2 hover:bg-slate-50 transition-all shadow-sm"><Plus size={18} /> Add Logic Group</button>
+                                        <button type="button" onClick={addRuleGroup} className="w-full py-5 border-2 border-dashed rounded-[2rem] text-slate-400 font-bold text-xs uppercase flex items-center justify-center gap-2 hover:bg-slate-50 transition-all shadow-sm"><Plus size={16} /> Add Logic Group</button>
                                     </div>
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10 pb-10">
-                                    <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Risk per trade (%)</label><input type="number" step="0.1" value={risk.risk_pct} onChange={e => setRisk({...risk, risk_pct: Number(e.target.value)})} className="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold text-sm" /></div>
-                                    <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Risk Reward Ratio</label><input type="number" step="0.1" value={risk.rr} onChange={e => setRisk({...risk, rr: Number(e.target.value)})} className="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold text-sm" /></div>
-                                    <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ATR Period</label><input type="number" value={risk.atr_period} onChange={e => setRisk({...risk, atr_period: Number(e.target.value)})} className="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold text-sm" /></div>
-                                    <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ATR Multiplier</label><input type="number" step="0.1" value={risk.atr_mult} onChange={e => setRisk({...risk, atr_mult: Number(e.target.value)})} className="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold text-sm" /></div>
+                                    <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Risk per trade (%)</label><input type="number" step="0.1" value={risk.risk_pct} onChange={e => setRisk({...risk, risk_pct: Number(e.target.value)})} className="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold text-sm outline-none" /></div>
+                                    <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Risk Reward Ratio</label><input type="number" step="0.1" value={risk.rr} onChange={e => setRisk({...risk, rr: Number(e.target.value)})} className="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold text-sm outline-none" /></div>
+                                    <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ATR Period</label><input type="number" value={risk.atr_period} onChange={e => setRisk({...risk, atr_period: Number(e.target.value)})} className="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold text-sm outline-none" /></div>
+                                    <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ATR Multiplier</label><input type="number" step="0.1" value={risk.atr_mult} onChange={e => setRisk({...risk, atr_mult: Number(e.target.value)})} className="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold text-sm outline-none" /></div>
                                 </div>
                             </div>
                         )}
 
                         <div className="pt-8 pb-12 border-t flex flex-col-reverse sm:flex-row items-center justify-end gap-4">
                             <button type="button" onClick={() => router.back()} className="px-8 py-4 text-slate-400 font-black text-xs uppercase tracking-widest">Cancel</button>
-                            <button type="submit" disabled={isSubmitting || isBacktesting} className="w-full sm:w-auto px-12 py-4 bg-gradient-to-r from-[#8200DB] to-[#5837F6] text-white text-xs font-black rounded-xl shadow-lg shadow-purple-200 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2 uppercase tracking-widest">
+                            <button type="submit" disabled={isSubmitting || isBacktesting} className="w-full sm:w-auto px-12 py-4 bg-gradient-to-r from-[#8200DB] to-[#5837F6] text-white text-xs font-black rounded-xl shadow-lg shadow-purple-200 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2 uppercase tracking-widest">
                                 {isSubmitting || isBacktesting ? <Loader2 className="animate-spin" size={16} /> : (activeTab === "Backtest" ? "Run Backtest" : "Deploy Bot Strategy")}
                             </button>
                         </div>
@@ -284,13 +292,13 @@ export default function CreateBotPage() {
                 </div>
             </main>
 
-            {/* Backtest Result Pop-up */}
+            {/* Backtest Result Popup */}
             {backtestData && (
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4 overflow-hidden">
                     <div className="bg-white w-full max-w-6xl rounded-[3rem] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-300">
                         <div className="p-8 border-b flex justify-between items-center bg-slate-50/50">
                             <div className="flex items-center gap-4"><LineChartIcon className="text-purple-600" size={24}/><h3 className="text-2xl font-black text-slate-800 tracking-tight">Backtest Report: {basicInfo.stock || "QH"}</h3></div>
-                            <button onClick={() => setBacktestData(null)}><X size={24} className="text-slate-400 hover:text-slate-600"/></button>
+                            <button onClick={() => setBacktestData(null)}><X size={24} className="text-slate-400 hover:text-slate-600 transition-colors"/></button>
                         </div>
                         <div className="overflow-y-auto p-10 space-y-10">
                             <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
@@ -307,6 +315,7 @@ export default function CreateBotPage() {
                                         <LineChart data={backtestData.equity_curve}>
                                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
                                             <XAxis dataKey="time" hide />
+                                            {/* Fix YAxis precision for equity values */}
                                             <YAxis domain={['auto', 'auto']} stroke="#94A3B8" fontSize={12} tickFormatter={(val) => `${(val/1000).toFixed(1)}k`} />
                                             <Tooltip formatter={(value: any) => [`${Number(value).toLocaleString()} ฿`, "Equity"]} contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
                                             <Line type="monotone" dataKey="equity" stroke="#8B5CF6" strokeWidth={4} dot={false} animationDuration={2000} />
