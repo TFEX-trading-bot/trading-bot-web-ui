@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
-import { Users, Copy, Star, Zap, Loader2, SearchX, TrendingUp } from "lucide-react";
+import { Users, Copy, Star, Zap, Loader2, SearchX, TrendingUp, Menu } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import DashboardHeader from "@/components/Header"; 
+import ProfileDropdown from "@/components/ProfileDropdown";
 // ✅ นำเข้า useRouter สำหรับการเปลี่ยนหน้า
 import { useRouter } from "next/navigation";
 
@@ -20,6 +21,7 @@ const cardColors = [
 export default function MarketPlacePage() {
   const [bots, setBots] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   // ✅ เรียกใช้งาน router
   const router = useRouter();
 
@@ -88,13 +90,45 @@ export default function MarketPlacePage() {
   );
 
   return (
-    <div className="flex min-h-screen bg-[#FDFCFE] font-sans text-slate-800">
-      <aside className="sticky top-0 h-screen hidden md:block z-40">
+    <div className="flex min-h-screen bg-[#FDFCFE] font-sans text-slate-800 relative">
+      {/* Backdrop สีดำโปร่งแสงสำหรับมือถือ */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 md:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar (Hamburger Menu Drawer สำหรับมือถือ) */}
+      <aside className={`
+        fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 ease-in-out
+        md:relative md:translate-x-0
+        ${isSidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"}
+      `}>
         <Sidebar />
       </aside>
 
       <main className="flex-1 flex flex-col min-w-0 bg-white">
-        <DashboardHeader title="Market Place" />
+        {/* แถบด้านบนสำหรับมือถือ พร้อมปุ่ม Hamburger Menu */}
+        <div className="md:hidden flex items-center justify-between p-4 bg-white border-b border-slate-100 sticky top-0 z-30">
+          <div className="flex items-center">
+            <button 
+              onClick={() => setIsSidebarOpen(true)} 
+              className="p-2 rounded-xl bg-purple-50 text-[#8200DB] hover:bg-purple-100 transition-colors"
+            >
+              <Menu size={24} />
+            </button>
+            <span className="ml-4 text-[24px] font-black bg-gradient-to-r from-[#7111B6] via-[#901CFA] to-[#5837F6] bg-clip-text text-transparent leading-normal tracking-tight pb-1">
+              Market Place
+            </span>
+          </div>
+          <ProfileDropdown />
+        </div>
+
+        {/* ซ่อน Header ของ Desktop บนมือถือ */}
+        <div className="hidden md:block">
+          <DashboardHeader title="Market Place" />
+        </div>
 
         <div className="p-8 lg:p-12 max-w-[1600px] w-full mx-auto">
           

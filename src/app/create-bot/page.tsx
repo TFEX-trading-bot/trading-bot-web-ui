@@ -38,6 +38,7 @@ export default function CreateBotPage() {
     const [filteredSymbols, setFilteredSymbols] = useState<string[]>([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const searchRef = useRef<HTMLDivElement>(null);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     // --- States ---
     const [botModel, setBotModel] = useState<"AI" | "Policy">("Policy");

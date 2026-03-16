@@ -4,7 +4,6 @@
 import { useState } from "react";
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
-import Ticker from "@/components/Ticker";
 import Features from "@/components/Features";
 import Markets from "@/components/Markets";
 import Pricing from "@/components/Pricing";
@@ -24,7 +23,6 @@ export default function Home() {
     <main className="min-h-screen">
       <Navbar onOpenAuth={openAuth} />
       <Hero onOpenAuth={() => openAuth("register")} />
-      <Ticker />
       <Features />
       <Markets />
       <Pricing onOpenAuth={() => openAuth("register")} />

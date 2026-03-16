@@ -16,7 +16,7 @@ const AdminSidebar = () => {
   ];
 
   return (
-    <aside className="flex flex-col h-screen w-[280px] flex-shrink-0 bg-gradient-to-br from-[#5D0CA1] via-[#4B0082] to-[#360062] text-white p-6 shadow-2xl relative z-50 overflow-hidden">
+    <aside className="flex flex-col h-full md:h-screen md:sticky md:top-0 w-[280px] flex-shrink-0 bg-gradient-to-br from-[#5D0CA1] via-[#4B0082] to-[#360062] text-white p-6 shadow-2xl relative z-50 overflow-hidden">
       
       {/* ✅ Logo Section - เอา Link ออกแล้ว */}
       <div className="flex items-center space-x-4 mb-12 mt-4 px-2 select-none">
