@@ -123,7 +123,7 @@ export default function BotDetailPage() {
   const handleSaveConfig = async () => {
     const isRiskValid = Number(riskPct) > 0 && Number(rrValue) > 0 && Number(atrPeriod) > 0 && Number(atrMult) > 0;
     if (!isRiskValid) {
-      alert("❌ กรุณากรอกข้อมูล Risk Management ให้ครบถ้วนและมากกว่า 0");
+      alert("❌ Save Failed: Please fill in all Risk Management fields with values greater than 0.");
       return; 
     }
 
@@ -162,12 +162,12 @@ export default function BotDetailPage() {
       });
 
       if (response.status === 200 || response.status === 204) { 
-        alert("✅ อัปเดตกลยุทธ์เรียบร้อยแล้ว!"); 
+        alert("✅ Save Configuration Complete!"); 
         await fetchBotData(); // ดึงข้อมูลใหม่เพื่อ Re-map UI
       } else {
-        alert("❌ บันทึกไม่สำเร็จ: เซิร์ฟเวอร์ไม่ยอมรับข้อมูล");
+        alert("❌ Save Failed: The server rejected the data.");
       }
-    } catch (err) { alert("❌ เชื่อมต่อ API ไม่สำเร็จ"); }
+    } catch (err) { alert("❌ Save Failed: Unable to connect to API."); }
     finally { setIsSaving(false); }
   };
 
@@ -181,7 +181,7 @@ export default function BotDetailPage() {
         headers: { Authorization: `Bearer ${token}` }
       });
       await fetchBotData();
-    } catch (err) { alert("❌ ทำรายการไม่สำเร็จ"); }
+    } catch (err) { alert("❌ Action Failed: Unable to perform the bot toggle."); }
     finally { setIsToggling(false); }
   };
 
