@@ -77,11 +77,24 @@ export default function CreateBotPage() {
     const handleAuthChange = (field: string, value: string) => { setAuth({ ...auth, [field]: value }); resetVerification(); };
 
     const handleVerify = async () => {
+        const missingFields = [];
+        if (!auth.broker_id) missingFields.push("Broker ID");
+        if (!auth.app_code) missingFields.push("App Code");
+        if (!auth.account_no) missingFields.push("Account Number");
+        if (!auth.pin) missingFields.push("PIN");
+        if (!auth.app_id) missingFields.push("Application ID");
+        if (!auth.app_secret) missingFields.push("Application Secret");
+
+        if (missingFields.length > 0) {
+            alert(`❌ Verification Failed: Please fill in the following fields: ${missingFields.join(", ")}`);
+            return;
+        }
+
         setIsVerifying(true);
         try {
             const verifyPayload = {
                 broker_id: auth.broker_id, app_code: auth.app_code, app_id: auth.app_id,
-                app_secret: auth.app_secret, account_no: auth.account_no, pin: auth.pin
+                app_secret: auth.app_secret.trim(), account_no: auth.account_no, pin: auth.pin
             };
             const response = await axios.post("http://localhost:8000/verify-credentials", verifyPayload);
             if (response.data.status === "success") {
@@ -91,7 +104,8 @@ export default function CreateBotPage() {
             }
         } catch (error: any) { 
             setIsVerified(false); 
-            alert("❌ การตรวจสอบล้มเหลว");
+            const errorMessage = error.response?.data?.detail || error.response?.data?.message || error.message || "Unknown error";
+            alert(`${errorMessage}`);
         }
         finally { setIsVerifying(false); }
     };
@@ -141,9 +155,16 @@ export default function CreateBotPage() {
         e.preventDefault();
         if (activeTab === "Backtest") { handleRunBacktest(); return; }
 
-        // ✅ Validation in English
-        if (!basicInfo.stock || !basicInfo.assigned_capital || !isVerified) {
-            alert("❌ Deployment Failed: Please fill in all required fields in the form and verify credentials.");
+        const missingFields = [];
+        if (!basicInfo.stock) missingFields.push("Stock");
+        if (!basicInfo.assigned_capital) missingFields.push("Max investing amount");
+
+        if (missingFields.length > 0) {
+            alert(`❌ Deployment Failed: Please fill in the following fields: ${missingFields.join(", ")}`);
+            return;
+        }
+        if (!isVerified) {
+            alert("❌ Deployment Failed: Please verify your credentials before deploying.");
             return;
         }
 
@@ -163,7 +184,7 @@ export default function CreateBotPage() {
             const payload = {
                 user_id: localStorage.getItem("user_id") || 1, 
                 stock: basicInfo.stock, timeframe: "15T", broker_id: auth.broker_id, app_code: auth.app_code, 
-                app_id: auth.app_id, app_secret: auth.app_secret, account_no: auth.account_no, pin: auth.pin, public: "true", 
+                app_id: auth.app_id, app_secret: auth.app_secret.trim(), account_no: auth.account_no, pin: auth.pin, public: "true", 
                 bot_type: finalBotType, // ✅ ส่งค่าที่คำนวณตามเงื่อนไขใหม่
                 strategy_config: { risk: { ...risk, sl_model: "ATR" }, rules: rules.map((r, i) => ({ action: r.action, priority: i + 1, [r.logic.toLowerCase()]: r.conditions.map((c: any) => ({ indicator: c.indicator, period: Number(c.period), op: c.operator, right: c.rightType === "VALUE" ? { type: "VALUE", value: Number(c.rightValue) } : { type: "INDICATOR", indicator: c.rightIndicator, period: Number(c.rightPeriod) } })) })) }
             };
@@ -178,12 +199,12 @@ export default function CreateBotPage() {
             <aside className={`fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 md:sticky md:top-0 md:h-screen md:translate-x-0 ${isSidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"}`}><Sidebar /></aside>
             <main className="flex-1 flex flex-col min-w-0 bg-white">
                 <div className="hidden md:block"><DashboardHeader title="Create Bot" /></div>
-                <div className="flex-grow p-6 lg:p-12 max-w-5xl w-full mx-auto space-y-10">
+                <div className="flex-grow p-4 lg:p-8 max-w-5xl w-full mx-auto space-y-8">
                     
                     <div className="flex justify-center">
                         <div className="flex bg-slate-100 p-1.5 rounded-full shadow-inner gap-1">
-                            <button type="button" onClick={() => setActiveTab("Market")} className={`px-10 py-2.5 rounded-full text-xs font-black uppercase transition-all duration-300 ${activeTab === "Market" ? "bg-[#8B5CF6] text-white shadow-md" : "text-slate-500"}`}>Market</button>
-                            <button type="button" onClick={() => setActiveTab("Backtest")} className={`px-10 py-2.5 rounded-full text-xs font-black uppercase transition-all duration-300 ${activeTab === "Backtest" ? "bg-[#8B5CF6] text-white shadow-md" : "text-slate-500"}`}>Backtest</button>
+                            <button type="button" onClick={() => setActiveTab("Market")} className={`px-8 py-2 rounded-full text-xs font-black uppercase transition-all duration-300 ${activeTab === "Market" ? "bg-[#8B5CF6] text-white shadow-md" : "text-slate-500"}`}>Market</button>
+                            <button type="button" onClick={() => setActiveTab("Backtest")} className={`px-8 py-2 rounded-full text-xs font-black uppercase transition-all duration-300 ${activeTab === "Backtest" ? "bg-[#8B5CF6] text-white shadow-md" : "text-slate-500"}`}>Backtest</button>
                         </div>
                     </div>
 
@@ -193,34 +214,34 @@ export default function CreateBotPage() {
                             <div className="space-y-2 relative" ref={searchRef}>
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Stock</label>
                                 <div className="relative">
-                                    <input value={basicInfo.stock} onChange={e => { const val = e.target.value.toUpperCase(); setBasicInfo({...basicInfo, stock: val, symbol_type: getSymbolType(val)}); setFilteredSymbols(allSymbols.filter(s => s.includes(val)).slice(0, 10)); setShowSuggestions(val.length > 0); }} className="w-full p-4 bg-slate-50 border-none rounded-xl outline-none font-bold text-slate-900 shadow-sm" placeholder="Symbol" />
-                                    <Search className="w-4 h-4 text-slate-400 absolute right-4 top-4" />
-                                    {showSuggestions && (<div className="absolute z-50 w-full bg-white border rounded-xl shadow-2xl mt-1 max-h-40 overflow-y-auto">{filteredSymbols.map(s => <div key={s} onClick={() => { setBasicInfo({...basicInfo, stock: s, symbol_type: getSymbolType(s)}); setShowSuggestions(false); }} className="px-4 py-2 hover:bg-purple-50 cursor-pointer font-bold text-sm border-b last:border-0">{s}</div>)}</div>)}
+                                    <input value={basicInfo.stock} onChange={e => { const val = e.target.value.toUpperCase(); setBasicInfo({...basicInfo, stock: val, symbol_type: getSymbolType(val)}); setFilteredSymbols(allSymbols.filter(s => s.includes(val)).slice(0, 10)); setShowSuggestions(val.length > 0); }} className="w-full p-3 bg-slate-50 border-none rounded-xl outline-none font-bold text-slate-900 shadow-sm text-sm" placeholder="Symbol" />
+                                    <Search className="w-4 h-4 text-slate-400 absolute right-4 top-3.5" />
+                                    {showSuggestions && (<div className="absolute z-50 w-full bg-white border rounded-xl shadow-2xl mt-1 max-h-40 overflow-y-auto">{filteredSymbols.map(s => <div key={s} onClick={() => { setBasicInfo({...basicInfo, stock: s, symbol_type: getSymbolType(s)}); setShowSuggestions(false); }} className="px-4 py-2 hover:bg-purple-50 cursor-pointer font-bold text-xs border-b last:border-0">{s}</div>)}</div>)}
                                 </div>
                             </div>
-                            <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Max investing amount</label><input type="number" onChange={(e) => setBasicInfo({...basicInfo, assigned_capital: e.target.value})} className="w-full p-4 bg-slate-100 rounded-xl outline-none font-bold text-slate-900" placeholder="0" /></div>
+                            <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Max investing amount</label><input type="number" onChange={(e) => setBasicInfo({...basicInfo, assigned_capital: e.target.value})} className="w-full p-3 bg-slate-100 rounded-xl outline-none font-bold text-slate-900 text-sm" placeholder="0" /></div>
                         </section>
 
                         {/* Bot Configuration */}
-                        <section className="space-y-8">
-                            <h4 className="text-2xl font-black text-slate-800 tracking-tight">Bot Configuration</h4>
+                        <section className="space-y-6">
+                            <h4 className="text-xl font-black text-slate-800 tracking-tight">Bot Configuration</h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Broker ID</label><input value={auth.broker_id} onChange={e => handleAuthChange('broker_id', e.target.value)} className="w-full p-4 bg-slate-50 border-none rounded-xl outline-none font-bold text-sm" /></div>
-                                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">App Code</label><input value={auth.app_code} onChange={e => handleAuthChange('app_code', e.target.value)} className="w-full p-4 bg-slate-50 border-none rounded-xl outline-none font-bold text-sm" /></div>
-                                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Account Number</label><input value={auth.account_no} onChange={e => handleAuthChange('account_no', e.target.value)} className="w-full p-4 bg-slate-50 border-none rounded-xl outline-none font-bold text-sm" /></div>
-                                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">PIN</label><input type="password" value={auth.pin} onChange={e => handleAuthChange('pin', e.target.value)} className="w-full p-4 bg-slate-50 border-none rounded-xl outline-none font-bold text-sm" /></div>
+                                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Broker ID</label><input value={auth.broker_id} onChange={e => handleAuthChange('broker_id', e.target.value)} className="w-full p-3 bg-slate-50 border-none rounded-xl outline-none font-bold text-sm" /></div>
+                                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">App Code</label><input value={auth.app_code} onChange={e => handleAuthChange('app_code', e.target.value)} className="w-full p-3 bg-slate-50 border-none rounded-xl outline-none font-bold text-sm" /></div>
+                                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Account Number</label><input value={auth.account_no} onChange={e => handleAuthChange('account_no', e.target.value)} className="w-full p-3 bg-slate-50 border-none rounded-xl outline-none font-bold text-sm" /></div>
+                                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">PIN</label><input type="password" value={auth.pin} onChange={e => handleAuthChange('pin', e.target.value)} className="w-full p-3 bg-slate-50 border-none rounded-xl outline-none font-bold text-sm" /></div>
                             </div>
                         </section>
 
                         {/* Authentication */}
-                        <section className="space-y-8">
+                        <section className="space-y-6">
                             <h3 className="text-lg font-black text-slate-800 tracking-tight">Authentication</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Application ID</label><input value={auth.app_id} onChange={e => handleAuthChange('app_id', e.target.value)} className="w-full p-4 bg-slate-50 border-none rounded-xl outline-none font-bold text-sm" /></div>
-                                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Application Secret</label><input type="password" value={auth.app_secret} onChange={e => handleAuthChange('app_secret', e.target.value)} className="w-full p-4 bg-slate-50 border-none rounded-xl outline-none font-bold text-sm" /></div>
+                                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Application ID</label><input value={auth.app_id} onChange={e => handleAuthChange('app_id', e.target.value)} className="w-full p-3 bg-slate-50 border-none rounded-xl outline-none font-bold text-sm" /></div>
+                                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Application Secret</label><input type="password" value={auth.app_secret} onChange={e => handleAuthChange('app_secret', e.target.value)} className="w-full p-3 bg-slate-50 border-none rounded-xl outline-none font-bold text-sm" /></div>
                             </div>
                             <div className="flex flex-col sm:flex-row items-center gap-4 mt-2">
-                                <button type="button" onClick={handleVerify} disabled={isVerifying} className={`px-10 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-lg transition-all flex items-center gap-2 ${isVerified ? "bg-emerald-500 text-white shadow-emerald-100" : "bg-[#8B5CF6] text-white shadow-purple-100 active:scale-95"}`}>
+                                <button type="button" onClick={handleVerify} disabled={isVerifying} className={`px-8 py-3 rounded-xl font-black text-[11px] uppercase tracking-widest shadow-md transition-all flex items-center gap-2 ${isVerified ? "bg-emerald-500 text-white shadow-emerald-100" : "bg-[#8B5CF6] text-white shadow-purple-100 active:scale-95"}`}>
                                     {isVerifying ? <Loader2 className="animate-spin" size={16} /> : (isVerified ? <CheckCircle2 size={16} /> : null)}
                                     {isVerified ? "Verified" : "Verify Credential & Balance"}
                                 </button>
@@ -231,68 +252,68 @@ export default function CreateBotPage() {
                         </section>
 
                         {/* Model Selection */}
-                        <section className="bg-white p-10 rounded-[2.5rem] border border-slate-100 space-y-8 shadow-sm">
-                            <h4 className="text-xl font-black text-slate-800 tracking-tight">Model</h4>
-                            <div className="flex gap-12 ml-4">
+                        <section className="bg-white p-6 rounded-3xl border border-slate-100 space-y-6 shadow-sm">
+                            <h4 className="text-lg font-black text-slate-800 tracking-tight">Model</h4>
+                            <div className="flex gap-8 ml-2">
                                 <label className="flex items-center gap-4 cursor-pointer group">
-                                    <div className="relative flex items-center justify-center"><input type="radio" checked={botModel === "AI"} onChange={() => setBotModel("AI")} className="peer appearance-none w-8 h-8 rounded-full border-4 border-slate-100 checked:border-[#8B5CF6] transition-all" /><div className="absolute w-4 h-4 rounded-full bg-transparent peer-checked:bg-[#8B5CF6] transition-all" /></div>
-                                    <span className={`text-lg font-black ${botModel === "AI" ? 'text-slate-800' : 'text-slate-400'}`}>AI</span>
+                                    <div className="relative flex items-center justify-center"><input type="radio" checked={botModel === "AI"} onChange={() => setBotModel("AI")} className="peer appearance-none w-6 h-6 rounded-full border-2 border-slate-200 checked:border-[#8B5CF6] transition-all" /><div className="absolute w-3 h-3 rounded-full bg-transparent peer-checked:bg-[#8B5CF6] transition-all" /></div>
+                                    <span className={`text-base font-black ${botModel === "AI" ? 'text-slate-800' : 'text-slate-400'}`}>AI</span>
                                 </label>
                                 <label className="flex items-center gap-4 cursor-pointer group">
-                                    <div className="relative flex items-center justify-center"><input type="radio" checked={botModel === "Policy"} onChange={() => setBotModel("Policy")} className="peer appearance-none w-8 h-8 rounded-full border-4 border-slate-100 checked:border-[#8B5CF6] transition-all" /><div className="absolute w-4 h-4 rounded-full bg-transparent peer-checked:bg-[#8B5CF6] transition-all" /></div>
-                                    <span className={`text-lg font-black ${botModel === "Policy" ? 'text-slate-800' : 'text-slate-400'}`}>Policy</span>
+                                    <div className="relative flex items-center justify-center"><input type="radio" checked={botModel === "Policy"} onChange={() => setBotModel("Policy")} className="peer appearance-none w-6 h-6 rounded-full border-2 border-slate-200 checked:border-[#8B5CF6] transition-all" /><div className="absolute w-3 h-3 rounded-full bg-transparent peer-checked:bg-[#8B5CF6] transition-all" /></div>
+                                    <span className={`text-base font-black ${botModel === "Policy" ? 'text-slate-800' : 'text-slate-400'}`}>Policy</span>
                                 </label>
                             </div>
                         </section>
 
                         {botModel === "Policy" && (
-                            <div className="space-y-10 animate-in fade-in slide-in-from-top-4 duration-500">
+                            <div className="space-y-8 animate-in fade-in slide-in-from-top-4 duration-500">
                                 {/* Advance Setting */}
-                                <div className="space-y-5">
-                                    <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">Advance Setting <Zap size={18} className="text-amber-500" /></h3>
-                                    <div className="bg-white border rounded-3xl p-8 shadow-sm space-y-6">
-                                        <div className="grid grid-cols-4 text-center text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 border-b pb-3"><span>Indicator</span><span>Condition</span><span>Value/Indicator</span><span>Action</span></div>
+                                <div className="space-y-4">
+                                    <h3 className="text-base font-black text-slate-800 flex items-center gap-2">Advance Setting <Zap size={16} className="text-amber-500" /></h3>
+                                    <div className="bg-white border rounded-2xl p-6 shadow-sm space-y-4">
+                                        <div className="grid grid-cols-4 text-center text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 border-b pb-2"><span>Indicator</span><span>Condition</span><span>Value/Indicator</span><span>Action</span></div>
                                         {rules.map((rule) => (
-                                            <div key={rule.id} className="p-4 md:p-6 border rounded-2xl bg-slate-50/50 space-y-4 relative">
+                                            <div key={rule.id} className="p-4 border rounded-xl bg-slate-50/50 space-y-3 relative">
                                                 {rule.conditions.map((cond: any, cIdx: number) => (
                                                     <div key={cond.id} className="grid grid-cols-4 gap-4 items-center">
-                                                        <div className="flex items-center gap-2 bg-white p-1.5 rounded-xl border h-11 shadow-sm">
+                                                        <div className="flex items-center gap-2 bg-white p-1.5 rounded-lg border h-10 shadow-sm">
                                                             <select value={cond.indicator} onChange={e => updateCondition(rule.id, cond.id, 'indicator', e.target.value)} className="appearance-none w-full bg-transparent font-bold text-xs outline-none px-3 pr-8">{INDICATOR_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select><ChevronDown size={14} className="absolute right-2 text-slate-400" />
                                                             <input value={cond.period} onChange={e => updateCondition(rule.id, cond.id, 'period', e.target.value)} className="w-10 text-center text-xs font-bold bg-slate-50 rounded h-full" placeholder="Pd" />
                                                         </div>
-                                                        <div className="bg-white p-1.5 rounded-xl border h-11 flex items-center px-2 relative shadow-sm"><select value={cond.operator} onChange={e => updateCondition(rule.id, cond.id, 'operator', e.target.value)} className="appearance-none w-full font-bold text-xs text-center">{CONDITION_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select><ChevronDown size={14} className="absolute right-2 text-slate-400" /></div>
-                                                        <div className="flex items-center gap-2 bg-white p-1.5 rounded-xl border h-11 shadow-sm">
-                                                            <select value={cond.rightType} onChange={e => updateCondition(rule.id, cond.id, 'rightType', e.target.value)} className="appearance-none font-bold text-[10px] w-14 outline-none border-r mr-2 pr-2 uppercase"><option value="VALUE">VAL</option><option value="INDICATOR">IND</option></select>
+                                                        <div className="bg-white p-1.5 rounded-lg border h-10 flex items-center px-2 relative shadow-sm"><select value={cond.operator} onChange={e => updateCondition(rule.id, cond.id, 'operator', e.target.value)} className="appearance-none w-full font-bold text-xs text-center">{CONDITION_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select><ChevronDown size={14} className="absolute right-2 text-slate-400" /></div>
+                                                        <div className="flex items-center gap-2 bg-white p-1.5 rounded-lg border h-10 shadow-sm">
+                                                            <select value={cond.rightType} onChange={e => updateCondition(rule.id, cond.id, 'rightType', e.target.value)} className="appearance-none font-bold text-[10px] w-12 outline-none border-r mr-2 pr-1 uppercase"><option value="VALUE">VAL</option><option value="INDICATOR">IND</option></select>
                                                             {cond.rightType === 'VALUE' ? <input value={cond.rightValue} onChange={e => updateCondition(rule.id, cond.id, 'rightValue', e.target.value)} className="w-full text-xs font-bold outline-none" placeholder="ค่า" /> : 
-                                                                <div className="flex gap-1 items-center"><select value={cond.rightIndicator} onChange={e => updateCondition(rule.id, cond.id, 'rightIndicator', e.target.value)} className="appearance-none font-bold text-xs w-full">{INDICATOR_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select><input value={cond.rightPeriod} onChange={e => updateCondition(rule.id, cond.id, 'rightPeriod', e.target.value)} className="w-10 h-7 bg-slate-100 rounded text-center text-[10px] font-bold" placeholder="Pd" /></div>
+                                                                <div className="flex gap-1 items-center"><select value={cond.rightIndicator} onChange={e => updateCondition(rule.id, cond.id, 'rightIndicator', e.target.value)} className="appearance-none font-bold text-xs w-full">{INDICATOR_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select><input value={cond.rightPeriod} onChange={e => updateCondition(rule.id, cond.id, 'rightPeriod', e.target.value)} className="w-8 h-6 bg-slate-100 rounded text-center text-[10px] font-bold" placeholder="Pd" /></div>
                                                             }
                                                         </div>
-                                                        <div className="flex justify-end gap-3"><select value={rule.action} onChange={(e) => updateRuleAction(rule.id, e.target.value)} className="font-black text-sm outline-none px-2 bg-transparent cursor-pointer" style={{ color: rule.action === 'BUY' ? '#10B981' : '#EF4444' }}><option value="BUY">BUY</option><option value="SELL">SELL</option></select><button type="button" onClick={() => removeRuleGroup(rule.id)} className="text-slate-200 hover:text-rose-500"><Trash2 size={18} /></button></div>
+                                                        <div className="flex justify-end gap-3"><select value={rule.action} onChange={(e) => updateRuleAction(rule.id, e.target.value)} className="font-black text-xs outline-none px-2 bg-transparent cursor-pointer" style={{ color: rule.action === 'BUY' ? '#10B981' : '#EF4444' }}><option value="BUY">BUY</option><option value="SELL">SELL</option></select><button type="button" onClick={() => removeRuleGroup(rule.id)} className="text-slate-300 hover:text-rose-500"><Trash2 size={16} /></button></div>
                                                     </div>
                                                 ))}
                                                 <div className="flex gap-4 pt-1"><div className="flex bg-white rounded-full p-1 border shadow-sm"><button type="button" onClick={() => setRuleLogic(rule.id, 'AND')} className={`px-6 py-1 rounded-full text-[10px] font-black transition-all ${rule.logic === 'AND' ? 'bg-[#8B5CF6] text-white' : 'text-slate-400'}`}>AND</button><button type="button" onClick={() => setRuleLogic(rule.id, 'OR')} className={`px-6 py-1 rounded-full text-[10px] font-black transition-all ${rule.logic === 'OR' ? 'bg-[#8B5CF6] text-white' : 'text-slate-400'}`}>OR</button></div><button type="button" onClick={() => addSubRule(rule.id)} className="text-[10px] font-black text-[#8B5CF6] hover:underline uppercase tracking-widest">+ ADD CONDITION</button></div>
                                             </div>
                                         ))}
-                                        <button type="button" onClick={addRuleGroup} className="w-full py-5 border-2 border-dashed border-slate-200 rounded-[2rem] text-slate-400 font-bold text-xs uppercase flex items-center justify-center gap-2 hover:bg-slate-50 transition-all shadow-sm"><Plus size={18} /> Add Logic Group</button>
+                                        <button type="button" onClick={addRuleGroup} className="w-full py-3 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 font-bold text-[11px] uppercase flex items-center justify-center gap-2 hover:bg-slate-50 transition-all shadow-sm"><Plus size={16} /> Add Logic Group</button>
                                     </div>
                                 </div>
 
                                 {/* Risk Management */}
-                                <div className="space-y-5 pb-10">
-                                    <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">Risk Management <Zap size={18} className="text-emerald-500" /></h3>
+                                <div className="space-y-4 pb-8">
+                                    <h3 className="text-base font-black text-slate-800 flex items-center gap-2">Risk Management <Zap size={16} className="text-emerald-500" /></h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-6">
-                                        <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Risk per trade (%)</label><input type="number" step="0.1" value={risk.risk_pct} onChange={e => setRisk({...risk, risk_pct: Number(e.target.value)})} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl outline-none font-bold text-sm" /></div>
-                                        <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Risk Reward Ratio</label><input type="number" step="0.1" value={risk.rr} onChange={e => setRisk({...risk, rr: Number(e.target.value)})} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl outline-none font-bold text-sm" /></div>
-                                        <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ATR Period</label><input type="number" value={risk.atr_period} onChange={e => setRisk({...risk, atr_period: Number(e.target.value)})} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl outline-none font-bold text-sm" /></div>
-                                        <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ATR Multiplier</label><input type="number" step="0.1" value={risk.atr_mult} onChange={e => setRisk({...risk, atr_mult: Number(e.target.value)})} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl outline-none font-bold text-sm" /></div>
+                                        <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Risk per trade (%)</label><input type="number" step="0.1" value={risk.risk_pct} onChange={e => setRisk({...risk, risk_pct: Number(e.target.value)})} className="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded-lg outline-none font-bold text-sm" /></div>
+                                        <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Risk Reward Ratio</label><input type="number" step="0.1" value={risk.rr} onChange={e => setRisk({...risk, rr: Number(e.target.value)})} className="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded-lg outline-none font-bold text-sm" /></div>
+                                        <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ATR Period</label><input type="number" value={risk.atr_period} onChange={e => setRisk({...risk, atr_period: Number(e.target.value)})} className="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded-lg outline-none font-bold text-sm" /></div>
+                                        <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ATR Multiplier</label><input type="number" step="0.1" value={risk.atr_mult} onChange={e => setRisk({...risk, atr_mult: Number(e.target.value)})} className="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded-lg outline-none font-bold text-sm" /></div>
                                     </div>
                                 </div>
                             </div>
                         )}
 
                         <div className="pt-8 pb-12 border-t flex flex-col-reverse sm:flex-row items-center justify-end gap-4">
-                            <button type="button" onClick={() => router.back()} className="px-8 py-4 text-slate-400 font-black text-xs uppercase tracking-widest hover:text-slate-600 transition-all">Cancel</button>
-                            <button type="submit" disabled={isSubmitting || isBacktesting} className="w-full sm:w-auto px-12 py-4 bg-gradient-to-r from-[#8200DB] to-[#5837F6] text-white text-xs font-black rounded-xl shadow-lg shadow-purple-200 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2 uppercase tracking-widest">
+                            <button type="button" onClick={() => router.back()} className="px-6 py-3 text-slate-400 font-black text-[11px] uppercase tracking-widest hover:text-slate-600 transition-all">Cancel</button>
+                            <button type="submit" disabled={isSubmitting || isBacktesting} className="w-full sm:w-auto px-10 py-3 bg-gradient-to-r from-[#8200DB] to-[#5837F6] text-white text-[11px] font-black rounded-xl shadow-md shadow-purple-200 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2 uppercase tracking-widest">
                                 {isSubmitting || isBacktesting ? <Loader2 className="animate-spin" size={16} /> : (activeTab === "Backtest" ? "Run Backtest" : "Deploy Bot Strategy")}
                             </button>
                         </div>
@@ -303,12 +324,12 @@ export default function CreateBotPage() {
             {/* Backtest Popup */}
             {backtestData && (
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4 overflow-hidden">
-                    <div className="bg-white w-full max-w-6xl rounded-[3rem] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-300">
-                        <div className="p-8 border-b flex justify-between items-center bg-slate-50/50">
-                            <div className="flex items-center gap-4"><LineChartIcon className="text-purple-600" size={24}/><h3 className="text-2xl font-black text-slate-800 tracking-tight">Backtest Report: {basicInfo.stock || "QH"}</h3></div>
-                            <button onClick={() => setBacktestData(null)}><X size={24} className="text-slate-400 hover:text-slate-600 transition-colors"/></button>
+                    <div className="bg-white w-full max-w-5xl rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-300">
+                        <div className="p-6 border-b flex justify-between items-center bg-slate-50/50">
+                            <div className="flex items-center gap-3"><LineChartIcon className="text-purple-600" size={20}/><h3 className="text-xl font-black text-slate-800 tracking-tight">Backtest Report: {basicInfo.stock || "QH"}</h3></div>
+                            <button onClick={() => setBacktestData(null)}><X size={20} className="text-slate-400 hover:text-slate-600 transition-colors"/></button>
                         </div>
-                        <div className="overflow-y-auto p-10 space-y-10">
+                        <div className="overflow-y-auto p-6 space-y-8">
                             <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
                                 <BacktestSummaryCard label="Final Equity" value={`${backtestData.summary.final_equity.toLocaleString()} ฿`} />
                                 <BacktestSummaryCard label="Total PnL" value={`${backtestData.summary.total_net_pnl.toLocaleString()} ฿`} color={backtestData.summary.total_net_pnl >= 0 ? "text-emerald-500" : "text-rose-500"} />
@@ -316,9 +337,9 @@ export default function CreateBotPage() {
                                 <BacktestSummaryCard label="Win Rate" value={`${backtestData.summary.win_rate}%`} />
                                 <BacktestSummaryCard label="Max Drawdown" value={`${backtestData.summary.max_drawdown_pct}%`} color="text-rose-500" />
                             </div>
-                            <div className="bg-slate-50 p-8 rounded-[2rem] border shadow-inner">
-                                <h4 className="text-lg font-black mb-6 flex items-center gap-2 text-slate-700 tracking-tight"><ArrowUpRight size={18}/> Equity Curve</h4>
-                                <div className="h-[350px] w-full overflow-hidden">
+                            <div className="bg-slate-50 p-6 rounded-2xl border shadow-inner">
+                                <h4 className="text-base font-black mb-4 flex items-center gap-2 text-slate-700 tracking-tight"><ArrowUpRight size={16}/> Equity Curve</h4>
+                                <div className="h-[300px] w-full overflow-hidden">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <LineChart data={backtestData.equity_curve}>
                                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
@@ -331,7 +352,7 @@ export default function CreateBotPage() {
                                 </div>
                             </div>
                         </div>
-                        <div className="p-8 bg-white border-t flex justify-end gap-4"><button onClick={() => setBacktestData(null)} className="px-10 py-3 bg-slate-100 text-slate-500 rounded-xl font-black uppercase tracking-widest text-[11px]">Close</button></div>
+                        <div className="p-6 bg-white border-t flex justify-end gap-4"><button onClick={() => setBacktestData(null)} className="px-8 py-2.5 bg-slate-100 text-slate-500 rounded-xl font-black uppercase tracking-widest text-[11px] hover:bg-slate-200 transition-colors">Close</button></div>
                     </div>
                 </div>
             )}
@@ -341,6 +362,6 @@ export default function CreateBotPage() {
 
 function BacktestSummaryCard({ label, value, color = "text-slate-800" }: any) {
   return (
-    <div className="bg-white p-6 rounded-3xl border text-center shadow-sm"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p><p className={`text-xl font-black ${color}`}>{value}</p></div>
+    <div className="bg-white p-4 rounded-2xl border text-center shadow-sm"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p><p className={`text-lg font-black ${color}`}>{value}</p></div>
   );
 }
