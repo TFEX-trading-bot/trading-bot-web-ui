@@ -191,7 +191,7 @@ export default function MarketPlacePage() {
                     onClick={() => router.push(`/create-copy-bot/${bot.id}`)}
                     className="w-full bg-slate-50 hover:bg-[#8B5CF6] text-slate-600 hover:text-white py-3 rounded-xl font-black uppercase text-[11px] tracking-widest border border-slate-100 hover:border-[#8B5CF6] transition-all duration-300 flex items-center justify-center gap-2 active:scale-95 shadow-sm"
                   >
-                    <Copy size={16} /> Copy Strategy
+                    <Copy size={16} /> Copy Trade
                   </button>
                 </div>
               ))}
