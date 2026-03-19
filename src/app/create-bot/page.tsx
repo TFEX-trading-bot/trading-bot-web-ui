@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 // --- Configuration ---
+const BOT_API_URL = process.env.NEXT_PUBLIC_BOT_API_URL || "http://localhost:8000";
 const INDICATOR_OPTIONS = ["RSI", "SMA", "EMA", "MACD", "STOCH", "ATR", "BBANDS", "OBV", "CLOSE", "OPEN", "HIGH", "LOW", "ADX", "DZV", "VWAP", "VOLUME", "HIGHN", "LOWN", "KELTNER", "DONCHIAN", "CHOP", "CRSI", "SUPERTREND"];
 const CONDITION_OPTIONS = [{ label: "Cross Above", value: "CROSS_ABOVE" }, { label: "Cross Below", value: "CROSS_BELOW" }, { label: "Greater (>)", value: "GREATER" }, { label: "Less (<)", value: "LESS" }];
 
@@ -96,7 +97,7 @@ export default function CreateBotPage() {
                 broker_id: auth.broker_id, app_code: auth.app_code, app_id: auth.app_id,
                 app_secret: auth.app_secret.trim(), account_no: auth.account_no, pin: auth.pin
             };
-            const response = await axios.post("http://localhost:8000/verify-credentials", verifyPayload);
+            const response = await axios.post(`${BOT_API_URL}/verify-credentials`, verifyPayload);
             if (response.data.status === "success") {
                 setIsVerified(true);
                 setCashBalance(response.data.cash_balance);
@@ -139,7 +140,7 @@ export default function CreateBotPage() {
         })));
 
         try {
-            const response = await axios.post("http://localhost:8000/backtest/policy", {
+            const response = await axios.post(`${BOT_API_URL}/backtest/policy`, {
                 stock: basicInfo.stock || "QH", 
                 bot_type: finalBotType,
                 timeframe: "15T", initial_capital: Number(basicInfo.assigned_capital || 100000), slippage: 0.01, commission_rate: 0.0005,
@@ -188,7 +189,7 @@ export default function CreateBotPage() {
                 bot_type: finalBotType, // ✅ ส่งค่าที่คำนวณตามเงื่อนไขใหม่
                 strategy_config: { risk: { ...risk, sl_model: "ATR" }, rules: rules.map((r, i) => ({ action: r.action, priority: i + 1, [r.logic.toLowerCase()]: r.conditions.map((c: any) => ({ indicator: c.indicator, period: Number(c.period), op: c.operator, right: c.rightType === "VALUE" ? { type: "VALUE", value: Number(c.rightValue) } : { type: "INDICATOR", indicator: c.rightIndicator, period: Number(c.rightPeriod) } })) })) }
             };
-            await axios.post("http://localhost:8000/spawn-bot", payload);
+            await axios.post(`${BOT_API_URL}/spawn-bot`, payload);
             alert("✅ Bot Strategy Deployed Successfully!");
         } catch (error: any) { alert("❌ Deployment Error: " + error.message); } 
         finally { setIsSubmitting(false); }
