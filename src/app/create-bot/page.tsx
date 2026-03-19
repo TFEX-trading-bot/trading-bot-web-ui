@@ -18,6 +18,13 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 const INDICATOR_OPTIONS = ["RSI", "SMA", "EMA", "MACD", "STOCH", "ATR", "BBANDS", "OBV", "CLOSE", "OPEN", "HIGH", "LOW", "ADX", "DZV", "VWAP", "VOLUME", "HIGHN", "LOWN", "KELTNER", "DONCHIAN", "CHOP", "CRSI", "SUPERTREND"];
 const CONDITION_OPTIONS = [{ label: "Cross Above", value: "CROSS_ABOVE" }, { label: "Cross Below", value: "CROSS_BELOW" }, { label: "Greater (>)", value: "GREATER" }, { label: "Less (<)", value: "LESS" }];
 
+// ✅ ฟังก์ชันแยกประเภทสินทรัพย์
+const getSymbolType = (symbol: string) => {
+    const derivativePrefixes = ["S50", "GO", "USD", "SVF", "JRF"];
+    const isDerivative = derivativePrefixes.some(prefix => symbol.startsWith(prefix));
+    return isDerivative ? "DERIVATIVE" : "STOCK";
+};
+
 const generateMarketSymbols = () => {
     const products = ["S50", "GO", "USD", "SVF", "JRF"];
     const months = ["H", "M", "U", "Z"];
@@ -33,8 +40,6 @@ export default function CreateBotPage() {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState("Market");
     const [isSubmitting, setIsSubmitting] = useState(false);
-    
-    // ✅ แก้ไข: ลบการประกาศซ้ำ (ลบอันที่อยู่บรรทัด 41 และ 45 ออกเหลือเพียงอันเดียว)
     const [isSidebarOpen, setIsSidebarOpen] = useState(false); 
     
     const allSymbols = useMemo(() => generateMarketSymbols(), []);
@@ -46,13 +51,11 @@ export default function CreateBotPage() {
     const [botModel, setBotModel] = useState<"AI" | "Policy">("Policy");
     const [isBacktesting, setIsBacktesting] = useState(false);
     const [backtestData, setBacktestData] = useState<any>(null);
-    
-    // --- Verification States ---
     const [isVerified, setIsVerified] = useState(false);
     const [isVerifying, setIsVerifying] = useState(false);
     const [cashBalance, setCashBalance] = useState<number | null>(null);
 
-    const [basicInfo, setBasicInfo] = useState({ stock: "", assigned_capital: "" });
+    const [basicInfo, setBasicInfo] = useState({ stock: "", assigned_capital: "", symbol_type: "STOCK" });
     const [auth, setAuth] = useState({ 
         broker_id: "003", app_code: "ALGO", account_no: "", pin: "", 
         app_id: "", app_secret: "" 
@@ -70,20 +73,9 @@ export default function CreateBotPage() {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    // --- 🔐 Reset Verification Helper ---
-    const resetVerification = () => {
-        if (isVerified) {
-            setIsVerified(false);
-            setCashBalance(null);
-        }
-    };
+    const resetVerification = () => { if (isVerified) { setIsVerified(false); setCashBalance(null); } };
+    const handleAuthChange = (field: string, value: string) => { setAuth({ ...auth, [field]: value }); resetVerification(); };
 
-    const handleAuthChange = (field: string, value: string) => {
-        setAuth({ ...auth, [field]: value });
-        resetVerification(); // บังคับให้ต้อง verify ใหม่หากมีการแก้ข้อมูล
-    };
-
-    // --- 🔐 Verify Credentials ---
     const handleVerify = async () => {
         setIsVerifying(true);
         try {
@@ -97,13 +89,14 @@ export default function CreateBotPage() {
                 setCashBalance(response.data.cash_balance);
                 alert(`✅ Verified Successfully!\nBalance: ${response.data.cash_balance.toLocaleString()} ฿`);
             }
-        } catch (error: any) {
-            setIsVerified(false);
-            alert("❌ Verify Failed: Invalid Credentials.");
-        } finally { setIsVerifying(false); }
+        } catch (error: any) { 
+            setIsVerified(false); 
+            alert("❌ การตรวจสอบล้มเหลว");
+        }
+        finally { setIsVerifying(false); }
     };
 
-    // --- Logic Handlers ---
+    // --- Handlers ---
     const updateCondition = (rid: number, cid: number, f: string, v: any) => 
         setRules(rules.map(r => r.id === rid ? { ...r, conditions: r.conditions.map((c:any) => c.id === cid ? { ...c, [f]: v } : c) } : r));
     const updateRuleAction = (id: number, action: string) => setRules(rules.map(r => r.id === id ? { ...r, action } : r));
@@ -116,17 +109,31 @@ export default function CreateBotPage() {
     // --- 🛠 Backtest ---
     const handleRunBacktest = async () => {
         setIsBacktesting(true);
+        
+        // ✅ Logic สำหรับกำหนด bot_type ในการรัน Backtest
+        let finalBotType = "";
+        const isDerivative = basicInfo.symbol_type === "DERIVATIVE";
+        if (botModel === "Policy") {
+            finalBotType = isDerivative ? "DERIVATIVE" : "EQUITY";
+        } else {
+            finalBotType = isDerivative ? "AI_DERIVATIVE" : "AI_EQUITY";
+        }
+
         const flatRules = rules.flatMap((group, gIdx) => group.conditions.map((cond: any, cIdx: number) => ({
             id: `rule_${gIdx}_${cIdx}`, action: group.action, priority: gIdx + 1, indicator: cond.indicator, period: Number(cond.period), op: cond.operator,
             right: cond.rightType === "VALUE" ? { type: "VALUE", value: Number(cond.rightValue) } : { type: "INDICATOR", indicator: cond.rightIndicator, period: Number(cond.rightPeriod) }
         })));
+
         try {
             const response = await axios.post("http://localhost:8000/backtest/policy", {
-                stock: basicInfo.stock || "QH", timeframe: "15T", initial_capital: Number(basicInfo.assigned_capital || 100000), slippage: 0.01, commission_rate: 0.0005,
+                stock: basicInfo.stock || "QH", 
+                bot_type: finalBotType,
+                timeframe: "15T", initial_capital: Number(basicInfo.assigned_capital || 100000), slippage: 0.01, commission_rate: 0.0005,
                 strategy_config: { risk: { ...risk, sl_model: "ATR", contract_multiplier: 1 }, rules: flatRules }
             });
             if (response.data.status === "success") setBacktestData(response.data);
-        } catch (error) { alert("Backtest Server Error"); } finally { setIsBacktesting(false); }
+        } catch (error) { alert("❌ An error occurred during the backtest run."); } 
+        finally { setIsBacktesting(false); }
     };
 
     // --- 🚀 SUBMIT ---
@@ -134,45 +141,45 @@ export default function CreateBotPage() {
         e.preventDefault();
         if (activeTab === "Backtest") { handleRunBacktest(); return; }
 
-        // ✅ Validation Check in English
-        const isBasicValid = basicInfo.stock && basicInfo.assigned_capital;
-        const isAuthValid = auth.broker_id && auth.app_code && auth.account_no && auth.pin && auth.app_id && auth.app_secret;
-        
-        if (!isBasicValid || !isAuthValid) {
-            alert("❌ Deployment Failed: Please fill in all required fields in the form.");
-            return;
-        }
-
-        if (!isVerified) {
-            alert("❌ Deployment Failed: Please verify your credentials first.");
+        // ✅ Validation in English
+        if (!basicInfo.stock || !basicInfo.assigned_capital || !isVerified) {
+            alert("❌ Deployment Failed: Please fill in all required fields in the form and verify credentials.");
             return;
         }
 
         setIsSubmitting(true);
+
+        // ✅ Logic กำหนด bot_type ตามเงื่อนไขใหม่
+        let finalBotType = "";
+        const isDerivative = basicInfo.symbol_type === "DERIVATIVE";
+
+        if (botModel === "Policy") {
+            finalBotType = isDerivative ? "DERIVATIVE" : "EQUITY";
+        } else if (botModel === "AI") {
+            finalBotType = isDerivative ? "AI_DERIVATIVE" : "AI_EQUITY";
+        }
+
         try {
             const payload = {
-                user_id: localStorage.getItem("user_id") || 1, stock: basicInfo.stock, timeframe: "15T", broker_id: auth.broker_id, app_code: auth.app_code, 
-                app_id: auth.app_id, app_secret: auth.app_secret, account_no: auth.account_no, pin: auth.pin, public: "true", bot_type: botModel.toUpperCase(),
+                user_id: localStorage.getItem("user_id") || 1, 
+                stock: basicInfo.stock, timeframe: "15T", broker_id: auth.broker_id, app_code: auth.app_code, 
+                app_id: auth.app_id, app_secret: auth.app_secret, account_no: auth.account_no, pin: auth.pin, public: "true", 
+                bot_type: finalBotType, // ✅ ส่งค่าที่คำนวณตามเงื่อนไขใหม่
                 strategy_config: { risk: { ...risk, sl_model: "ATR" }, rules: rules.map((r, i) => ({ action: r.action, priority: i + 1, [r.logic.toLowerCase()]: r.conditions.map((c: any) => ({ indicator: c.indicator, period: Number(c.period), op: c.operator, right: c.rightType === "VALUE" ? { type: "VALUE", value: Number(c.rightValue) } : { type: "INDICATOR", indicator: c.rightIndicator, period: Number(c.rightPeriod) } })) })) }
             };
             await axios.post("http://localhost:8000/spawn-bot", payload);
             alert("✅ Bot Strategy Deployed Successfully!");
-        } catch (error: any) { alert("❌ Error: " + error.message); } finally { setIsSubmitting(false); }
+        } catch (error: any) { alert("❌ Deployment Error: " + error.message); } 
+        finally { setIsSubmitting(false); }
     };
 
     return (
         <div className="flex min-h-screen bg-[#FDFCFE] font-sans text-slate-800 relative">
-            {/* Sidebar Fix: Sticky prevents cutoff */}
             <aside className={`fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 md:sticky md:top-0 md:h-screen md:translate-x-0 ${isSidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"}`}><Sidebar /></aside>
-            
             <main className="flex-1 flex flex-col min-w-0 bg-white">
-                <div className="md:hidden flex items-center justify-between p-4 border-b sticky top-0 z-30 bg-white">
-                    <button onClick={() => setIsSidebarOpen(true)} className="p-2 rounded-xl bg-purple-50 text-[#8200DB]"><Menu size={24} /></button>
-                    <ProfileDropdown />
-                </div>
-                <div className="hidden md:block"><DashboardHeader title="Create Your Trading Bot" /></div>
-
-                <div className="flex-grow p-6 lg:p-8 max-w-5xl w-full mx-auto space-y-10">
+                <div className="hidden md:block"><DashboardHeader title="Create Bot" /></div>
+                <div className="flex-grow p-6 lg:p-12 max-w-5xl w-full mx-auto space-y-10">
+                    
                     <div className="flex justify-center">
                         <div className="flex bg-slate-100 p-1.5 rounded-full shadow-inner gap-1">
                             <button type="button" onClick={() => setActiveTab("Market")} className={`px-10 py-2.5 rounded-full text-xs font-black uppercase transition-all duration-300 ${activeTab === "Market" ? "bg-[#8B5CF6] text-white shadow-md" : "text-slate-500"}`}>Market</button>
@@ -186,9 +193,9 @@ export default function CreateBotPage() {
                             <div className="space-y-2 relative" ref={searchRef}>
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Stock</label>
                                 <div className="relative">
-                                    <input value={basicInfo.stock} onChange={e => { const val = e.target.value.toUpperCase(); setBasicInfo({...basicInfo, stock: val}); setFilteredSymbols(allSymbols.filter(s => s.includes(val)).slice(0, 10)); setShowSuggestions(val.length > 0); }} className="w-full p-4 bg-slate-100 rounded-xl outline-none font-bold text-slate-900 border-none" placeholder="Symbol" />
+                                    <input value={basicInfo.stock} onChange={e => { const val = e.target.value.toUpperCase(); setBasicInfo({...basicInfo, stock: val, symbol_type: getSymbolType(val)}); setFilteredSymbols(allSymbols.filter(s => s.includes(val)).slice(0, 10)); setShowSuggestions(val.length > 0); }} className="w-full p-4 bg-slate-50 border-none rounded-xl outline-none font-bold text-slate-900 shadow-sm" placeholder="Symbol" />
                                     <Search className="w-4 h-4 text-slate-400 absolute right-4 top-4" />
-                                    {showSuggestions && (<div className="absolute z-50 w-full bg-white border rounded-xl shadow-2xl mt-1 max-h-40 overflow-y-auto">{filteredSymbols.map(s => <div key={s} onClick={() => { setBasicInfo({...basicInfo, stock: s}); setShowSuggestions(false); }} className="px-4 py-2 hover:bg-purple-50 cursor-pointer font-bold text-sm border-b last:border-0">{s}</div>)}</div>)}
+                                    {showSuggestions && (<div className="absolute z-50 w-full bg-white border rounded-xl shadow-2xl mt-1 max-h-40 overflow-y-auto">{filteredSymbols.map(s => <div key={s} onClick={() => { setBasicInfo({...basicInfo, stock: s, symbol_type: getSymbolType(s)}); setShowSuggestions(false); }} className="px-4 py-2 hover:bg-purple-50 cursor-pointer font-bold text-sm border-b last:border-0">{s}</div>)}</div>)}
                                 </div>
                             </div>
                             <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Max investing amount</label><input type="number" onChange={(e) => setBasicInfo({...basicInfo, assigned_capital: e.target.value})} className="w-full p-4 bg-slate-100 rounded-xl outline-none font-bold text-slate-900" placeholder="0" /></div>
@@ -198,10 +205,10 @@ export default function CreateBotPage() {
                         <section className="space-y-8">
                             <h4 className="text-2xl font-black text-slate-800 tracking-tight">Bot Configuration</h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Broker ID</label><input value={auth.broker_id} onChange={e => handleAuthChange('broker_id', e.target.value)} className="w-full p-4 bg-slate-100 rounded-xl outline-none font-bold text-sm" /></div>
-                                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">App Code</label><input value={auth.app_code} onChange={e => handleAuthChange('app_code', e.target.value)} className="w-full p-4 bg-slate-100 rounded-xl outline-none font-bold text-sm" /></div>
-                                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Account Number</label><input value={auth.account_no} onChange={e => handleAuthChange('account_no', e.target.value)} className="w-full p-4 bg-slate-100 rounded-xl outline-none font-bold text-sm" /></div>
-                                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">PIN</label><input type="password" value={auth.pin} onChange={e => handleAuthChange('pin', e.target.value)} className="w-full p-4 bg-slate-100 rounded-xl outline-none font-bold text-sm" /></div>
+                                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Broker ID</label><input value={auth.broker_id} onChange={e => handleAuthChange('broker_id', e.target.value)} className="w-full p-4 bg-slate-50 border-none rounded-xl outline-none font-bold text-sm" /></div>
+                                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">App Code</label><input value={auth.app_code} onChange={e => handleAuthChange('app_code', e.target.value)} className="w-full p-4 bg-slate-50 border-none rounded-xl outline-none font-bold text-sm" /></div>
+                                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Account Number</label><input value={auth.account_no} onChange={e => handleAuthChange('account_no', e.target.value)} className="w-full p-4 bg-slate-50 border-none rounded-xl outline-none font-bold text-sm" /></div>
+                                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">PIN</label><input type="password" value={auth.pin} onChange={e => handleAuthChange('pin', e.target.value)} className="w-full p-4 bg-slate-50 border-none rounded-xl outline-none font-bold text-sm" /></div>
                             </div>
                         </section>
 
@@ -209,11 +216,11 @@ export default function CreateBotPage() {
                         <section className="space-y-8">
                             <h3 className="text-lg font-black text-slate-800 tracking-tight">Authentication</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Application ID</label><input value={auth.app_id} onChange={e => handleAuthChange('app_id', e.target.value)} className="w-full p-4 bg-slate-100 rounded-xl outline-none font-bold text-sm" /></div>
-                                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Application Secret</label><input type="password" value={auth.app_secret} onChange={e => handleAuthChange('app_secret', e.target.value)} className="w-full p-4 bg-slate-100 rounded-xl outline-none font-bold text-sm" /></div>
+                                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Application ID</label><input value={auth.app_id} onChange={e => handleAuthChange('app_id', e.target.value)} className="w-full p-4 bg-slate-50 border-none rounded-xl outline-none font-bold text-sm" /></div>
+                                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Application Secret</label><input type="password" value={auth.app_secret} onChange={e => handleAuthChange('app_secret', e.target.value)} className="w-full p-4 bg-slate-50 border-none rounded-xl outline-none font-bold text-sm" /></div>
                             </div>
                             <div className="flex flex-col sm:flex-row items-center gap-4 mt-2">
-                                <button type="button" onClick={handleVerify} disabled={isVerifying} className={`px-10 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-lg transition-all flex items-center gap-2 ${isVerified ? "bg-emerald-500 text-white" : "bg-[#8B5CF6] text-white active:scale-95"}`}>
+                                <button type="button" onClick={handleVerify} disabled={isVerifying} className={`px-10 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest shadow-lg transition-all flex items-center gap-2 ${isVerified ? "bg-emerald-500 text-white shadow-emerald-100" : "bg-[#8B5CF6] text-white shadow-purple-100 active:scale-95"}`}>
                                     {isVerifying ? <Loader2 className="animate-spin" size={16} /> : (isVerified ? <CheckCircle2 size={16} /> : null)}
                                     {isVerified ? "Verified" : "Verify Credential & Balance"}
                                 </button>
@@ -246,44 +253,45 @@ export default function CreateBotPage() {
                                     <div className="bg-white border rounded-3xl p-8 shadow-sm space-y-6">
                                         <div className="grid grid-cols-4 text-center text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 border-b pb-3"><span>Indicator</span><span>Condition</span><span>Value/Indicator</span><span>Action</span></div>
                                         {rules.map((rule) => (
-                                            <div key={rule.id} className="p-6 border rounded-2xl bg-slate-50/50 space-y-4 relative">
+                                            <div key={rule.id} className="p-4 md:p-6 border rounded-2xl bg-slate-50/50 space-y-4 relative">
                                                 {rule.conditions.map((cond: any, cIdx: number) => (
                                                     <div key={cond.id} className="grid grid-cols-4 gap-4 items-center">
-                                                        <div className="flex items-center gap-2 bg-white p-1.5 rounded-xl border h-12 shadow-sm">
-                                                            <select value={cond.indicator} onChange={e => updateCondition(rule.id, cond.id, 'indicator', e.target.value)} className="appearance-none w-full bg-transparent font-bold text-xs outline-none px-2">{INDICATOR_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select>
-                                                            <input value={cond.period} onChange={e => updateCondition(rule.id, cond.id, 'period', e.target.value)} className="w-10 text-center text-xs font-bold bg-slate-50 rounded" placeholder="Pd" />
+                                                        <div className="flex items-center gap-2 bg-white p-1.5 rounded-xl border h-11 shadow-sm">
+                                                            <select value={cond.indicator} onChange={e => updateCondition(rule.id, cond.id, 'indicator', e.target.value)} className="appearance-none w-full bg-transparent font-bold text-xs outline-none px-3 pr-8">{INDICATOR_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select><ChevronDown size={14} className="absolute right-2 text-slate-400" />
+                                                            <input value={cond.period} onChange={e => updateCondition(rule.id, cond.id, 'period', e.target.value)} className="w-10 text-center text-xs font-bold bg-slate-50 rounded h-full" placeholder="Pd" />
                                                         </div>
-                                                        <div className="bg-white p-1.5 rounded-xl border h-12 flex items-center px-2 relative shadow-sm"><select value={cond.operator} onChange={e => updateCondition(rule.id, cond.id, 'operator', e.target.value)} className="appearance-none w-full font-bold text-xs text-center">{CONDITION_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select><ChevronDown size={14} className="absolute right-2 text-slate-400" /></div>
-                                                        <div className="flex items-center gap-2 bg-white p-1.5 rounded-xl border h-12 shadow-sm">
+                                                        <div className="bg-white p-1.5 rounded-xl border h-11 flex items-center px-2 relative shadow-sm"><select value={cond.operator} onChange={e => updateCondition(rule.id, cond.id, 'operator', e.target.value)} className="appearance-none w-full font-bold text-xs text-center">{CONDITION_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select><ChevronDown size={14} className="absolute right-2 text-slate-400" /></div>
+                                                        <div className="flex items-center gap-2 bg-white p-1.5 rounded-xl border h-11 shadow-sm">
                                                             <select value={cond.rightType} onChange={e => updateCondition(rule.id, cond.id, 'rightType', e.target.value)} className="appearance-none font-bold text-[10px] w-14 outline-none border-r mr-2 pr-2 uppercase"><option value="VALUE">VAL</option><option value="INDICATOR">IND</option></select>
-                                                            {cond.rightType === 'VALUE' ? <input value={cond.rightValue} onChange={e => updateCondition(rule.id, cond.id, 'rightValue', e.target.value)} className="w-full text-xs font-bold outline-none" placeholder="Value" /> : 
-                                                                <div className="flex gap-1 items-center"><select value={cond.rightIndicator} onChange={e => updateCondition(rule.id, cond.id, 'rightIndicator', e.target.value)} className="appearance-none font-bold text-xs w-full">{INDICATOR_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select><input value={cond.rightPeriod} onChange={e => updateCondition(rule.id, cond.id, 'rightPeriod', e.target.value)} className="w-10 h-7 bg-slate-50 text-center text-[10px] font-bold" placeholder="Pd" /></div>
+                                                            {cond.rightType === 'VALUE' ? <input value={cond.rightValue} onChange={e => updateCondition(rule.id, cond.id, 'rightValue', e.target.value)} className="w-full text-xs font-bold outline-none" placeholder="ค่า" /> : 
+                                                                <div className="flex gap-1 items-center"><select value={cond.rightIndicator} onChange={e => updateCondition(rule.id, cond.id, 'rightIndicator', e.target.value)} className="appearance-none font-bold text-xs w-full">{INDICATOR_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select><input value={cond.rightPeriod} onChange={e => updateCondition(rule.id, cond.id, 'rightPeriod', e.target.value)} className="w-10 h-7 bg-slate-100 rounded text-center text-[10px] font-bold" placeholder="Pd" /></div>
                                                             }
                                                         </div>
-                                                        <div className="flex justify-end gap-3 items-center">
-                                                            <select value={rule.action} onChange={(e) => updateRuleAction(rule.id, e.target.value)} className="font-black text-sm outline-none px-2 bg-transparent" style={{ color: rule.action === 'BUY' ? '#10B981' : '#EF4444' }}><option value="BUY">BUY</option><option value="SELL">SELL</option></select>
-                                                            <button type="button" onClick={() => removeRuleGroup(rule.id)} className="text-slate-200 hover:text-rose-500 transition-colors"><Trash2 size={18} /></button>
-                                                        </div>
+                                                        <div className="flex justify-end gap-3"><select value={rule.action} onChange={(e) => updateRuleAction(rule.id, e.target.value)} className="font-black text-sm outline-none px-2 bg-transparent cursor-pointer" style={{ color: rule.action === 'BUY' ? '#10B981' : '#EF4444' }}><option value="BUY">BUY</option><option value="SELL">SELL</option></select><button type="button" onClick={() => removeRuleGroup(rule.id)} className="text-slate-200 hover:text-rose-500"><Trash2 size={18} /></button></div>
                                                     </div>
                                                 ))}
                                                 <div className="flex gap-4 pt-1"><div className="flex bg-white rounded-full p-1 border shadow-sm"><button type="button" onClick={() => setRuleLogic(rule.id, 'AND')} className={`px-6 py-1 rounded-full text-[10px] font-black transition-all ${rule.logic === 'AND' ? 'bg-[#8B5CF6] text-white' : 'text-slate-400'}`}>AND</button><button type="button" onClick={() => setRuleLogic(rule.id, 'OR')} className={`px-6 py-1 rounded-full text-[10px] font-black transition-all ${rule.logic === 'OR' ? 'bg-[#8B5CF6] text-white' : 'text-slate-400'}`}>OR</button></div><button type="button" onClick={() => addSubRule(rule.id)} className="text-[10px] font-black text-[#8B5CF6] hover:underline uppercase tracking-widest">+ ADD CONDITION</button></div>
                                             </div>
                                         ))}
-                                        <button type="button" onClick={addRuleGroup} className="w-full py-5 border-2 border-dashed rounded-[2rem] text-slate-400 font-bold text-xs uppercase flex items-center justify-center gap-2 hover:bg-slate-50 transition-all shadow-sm"><Plus size={16} /> Add Logic Group</button>
+                                        <button type="button" onClick={addRuleGroup} className="w-full py-5 border-2 border-dashed border-slate-200 rounded-[2rem] text-slate-400 font-bold text-xs uppercase flex items-center justify-center gap-2 hover:bg-slate-50 transition-all shadow-sm"><Plus size={18} /> Add Logic Group</button>
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-10 pb-10">
-                                    <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Risk per trade (%)</label><input type="number" step="0.1" value={risk.risk_pct} onChange={e => setRisk({...risk, risk_pct: Number(e.target.value)})} className="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold text-sm outline-none" /></div>
-                                    <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Risk Reward Ratio</label><input type="number" step="0.1" value={risk.rr} onChange={e => setRisk({...risk, rr: Number(e.target.value)})} className="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold text-sm outline-none" /></div>
-                                    <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ATR Period</label><input type="number" value={risk.atr_period} onChange={e => setRisk({...risk, atr_period: Number(e.target.value)})} className="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold text-sm outline-none" /></div>
-                                    <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ATR Multiplier</label><input type="number" step="0.1" value={risk.atr_mult} onChange={e => setRisk({...risk, atr_mult: Number(e.target.value)})} className="w-full px-4 py-3 bg-slate-50 border rounded-xl font-bold text-sm outline-none" /></div>
+                                {/* Risk Management */}
+                                <div className="space-y-5 pb-10">
+                                    <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">Risk Management <Zap size={18} className="text-emerald-500" /></h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-6">
+                                        <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Risk per trade (%)</label><input type="number" step="0.1" value={risk.risk_pct} onChange={e => setRisk({...risk, risk_pct: Number(e.target.value)})} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl outline-none font-bold text-sm" /></div>
+                                        <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Risk Reward Ratio</label><input type="number" step="0.1" value={risk.rr} onChange={e => setRisk({...risk, rr: Number(e.target.value)})} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl outline-none font-bold text-sm" /></div>
+                                        <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ATR Period</label><input type="number" value={risk.atr_period} onChange={e => setRisk({...risk, atr_period: Number(e.target.value)})} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl outline-none font-bold text-sm" /></div>
+                                        <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ATR Multiplier</label><input type="number" step="0.1" value={risk.atr_mult} onChange={e => setRisk({...risk, atr_mult: Number(e.target.value)})} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl outline-none font-bold text-sm" /></div>
+                                    </div>
                                 </div>
                             </div>
                         )}
 
                         <div className="pt-8 pb-12 border-t flex flex-col-reverse sm:flex-row items-center justify-end gap-4">
-                            <button type="button" onClick={() => router.back()} className="px-8 py-4 text-slate-400 font-black text-xs uppercase tracking-widest">Cancel</button>
+                            <button type="button" onClick={() => router.back()} className="px-8 py-4 text-slate-400 font-black text-xs uppercase tracking-widest hover:text-slate-600 transition-all">Cancel</button>
                             <button type="submit" disabled={isSubmitting || isBacktesting} className="w-full sm:w-auto px-12 py-4 bg-gradient-to-r from-[#8200DB] to-[#5837F6] text-white text-xs font-black rounded-xl shadow-lg shadow-purple-200 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2 uppercase tracking-widest">
                                 {isSubmitting || isBacktesting ? <Loader2 className="animate-spin" size={16} /> : (activeTab === "Backtest" ? "Run Backtest" : "Deploy Bot Strategy")}
                             </button>
@@ -292,7 +300,7 @@ export default function CreateBotPage() {
                 </div>
             </main>
 
-            {/* Backtest Result Popup */}
+            {/* Backtest Popup */}
             {backtestData && (
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4 overflow-hidden">
                     <div className="bg-white w-full max-w-6xl rounded-[3rem] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-300">
@@ -315,7 +323,6 @@ export default function CreateBotPage() {
                                         <LineChart data={backtestData.equity_curve}>
                                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
                                             <XAxis dataKey="time" hide />
-                                            {/* Fix YAxis precision for equity values */}
                                             <YAxis domain={['auto', 'auto']} stroke="#94A3B8" fontSize={12} tickFormatter={(val) => `${(val/1000).toFixed(1)}k`} />
                                             <Tooltip formatter={(value: any) => [`${Number(value).toLocaleString()} ฿`, "Equity"]} contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
                                             <Line type="monotone" dataKey="equity" stroke="#8B5CF6" strokeWidth={4} dot={false} animationDuration={2000} />
