@@ -50,6 +50,7 @@ export default function CreateBotPage() {
 
     // --- States ---
     const [botModel, setBotModel] = useState<"AI" | "Policy">("Policy");
+    const [isPublic, setIsPublic] = useState(false);
     const [isBacktesting, setIsBacktesting] = useState(false);
     const [backtestData, setBacktestData] = useState<any>(null);
     const [isVerified, setIsVerified] = useState(false);
@@ -185,7 +186,7 @@ export default function CreateBotPage() {
             const payload = {
                 user_id: localStorage.getItem("user_id") || 1, 
                 stock: basicInfo.stock, timeframe: "15T", broker_id: auth.broker_id, app_code: auth.app_code, 
-                app_id: auth.app_id, app_secret: auth.app_secret.trim(), account_no: auth.account_no, pin: auth.pin, public: "true", 
+                app_id: auth.app_id, app_secret: auth.app_secret.trim(), account_no: auth.account_no, pin: auth.pin, public: botModel === "AI" ? false : isPublic, 
                 bot_type: finalBotType, // ✅ ส่งค่าที่คำนวณตามเงื่อนไขใหม่
                 strategy_config: { risk: { ...risk, sl_model: "ATR" }, rules: rules.map((r, i) => ({ action: r.action, priority: i + 1, [r.logic.toLowerCase()]: r.conditions.map((c: any) => ({ indicator: c.indicator, period: Number(c.period), op: c.operator, right: c.rightType === "VALUE" ? { type: "VALUE", value: Number(c.rightValue) } : { type: "INDICATOR", indicator: c.rightIndicator, period: Number(c.rightPeriod) } })) })) }
             };
@@ -202,7 +203,7 @@ export default function CreateBotPage() {
                 <div className="hidden md:block"><DashboardHeader title="Create Bot" /></div>
                 <div className="flex-grow p-4 lg:p-8 max-w-5xl w-full mx-auto space-y-8">
                     
-                    <div className="flex justify-center">
+                    <div className="flex justify-center relative items-center z-10">
                         <div className="flex bg-slate-100 p-1.5 rounded-full shadow-inner gap-1">
                             <button type="button" onClick={() => setActiveTab("Market")} className={`px-8 py-2 rounded-full text-xs font-black uppercase transition-all duration-300 ${activeTab === "Market" ? "bg-[#8B5CF6] text-white shadow-md" : "text-slate-500"}`}>Market</button>
                             <button type="button" onClick={() => setActiveTab("Backtest")} className={`px-8 py-2 rounded-full text-xs font-black uppercase transition-all duration-300 ${activeTab === "Backtest" ? "bg-[#8B5CF6] text-white shadow-md" : "text-slate-500"}`}>Backtest</button>
@@ -223,9 +224,24 @@ export default function CreateBotPage() {
                             <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Max investing amount</label><input type="number" onChange={(e) => setBasicInfo({...basicInfo, assigned_capital: e.target.value})} className="w-full p-3 bg-slate-100 rounded-xl outline-none font-bold text-slate-900 text-sm" placeholder="0" /></div>
                         </section>
 
+                        {activeTab !== "Backtest" && (
+                            <>
                         {/* Bot Configuration */}
                         <section className="space-y-6">
-                            <h4 className="text-xl font-black text-slate-800 tracking-tight">Bot Configuration</h4>
+                            <div className="flex items-center gap-2">
+                                <h4 className="text-xl font-black text-slate-800 tracking-tight">Bot Configuration</h4>
+                                <a 
+                                    href="https://drive.google.com/drive/folders/1oGB_cFVkIvXI2qzMCZKUoMwwEyxihP3z?usp=sharing" 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="group relative flex items-center justify-center p-1.5 rounded-full hover:bg-purple-50 text-slate-400 hover:text-[#8B5CF6] transition-all cursor-pointer"
+                                >
+                                    <Info size={20} />
+                                    <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-3 py-2 bg-slate-800 text-white text-[11px] font-bold rounded-xl opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-lg">
+                                        User Manual
+                                    </span>
+                                </a>
+                            </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                 <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Broker ID</label><input value={auth.broker_id} onChange={e => handleAuthChange('broker_id', e.target.value)} className="w-full p-3 bg-slate-50 border-none rounded-xl outline-none font-bold text-sm" /></div>
                                 <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">App Code</label><input value={auth.app_code} onChange={e => handleAuthChange('app_code', e.target.value)} className="w-full p-3 bg-slate-50 border-none rounded-xl outline-none font-bold text-sm" /></div>
@@ -251,23 +267,44 @@ export default function CreateBotPage() {
                                 )}
                             </div>
                         </section>
+                            </>
+                        )}
 
-                        {/* Model Selection */}
-                        <section className="bg-white p-6 rounded-3xl border border-slate-100 space-y-6 shadow-sm">
-                            <h4 className="text-lg font-black text-slate-800 tracking-tight">Model</h4>
-                            <div className="flex gap-8 ml-2">
-                                <label className="flex items-center gap-4 cursor-pointer group">
-                                    <div className="relative flex items-center justify-center"><input type="radio" checked={botModel === "AI"} onChange={() => setBotModel("AI")} className="peer appearance-none w-6 h-6 rounded-full border-2 border-slate-200 checked:border-[#8B5CF6] transition-all" /><div className="absolute w-3 h-3 rounded-full bg-transparent peer-checked:bg-[#8B5CF6] transition-all" /></div>
-                                    <span className={`text-base font-black ${botModel === "AI" ? 'text-slate-800' : 'text-slate-400'}`}>AI</span>
-                                </label>
-                                <label className="flex items-center gap-4 cursor-pointer group">
-                                    <div className="relative flex items-center justify-center"><input type="radio" checked={botModel === "Policy"} onChange={() => setBotModel("Policy")} className="peer appearance-none w-6 h-6 rounded-full border-2 border-slate-200 checked:border-[#8B5CF6] transition-all" /><div className="absolute w-3 h-3 rounded-full bg-transparent peer-checked:bg-[#8B5CF6] transition-all" /></div>
-                                    <span className={`text-base font-black ${botModel === "Policy" ? 'text-slate-800' : 'text-slate-400'}`}>Policy</span>
-                                </label>
-                            </div>
-                        </section>
+                        {/* Model & Visibility Selection */}
+                        {activeTab !== "Backtest" && (
+                        <div className={`grid grid-cols-1 gap-8 ${botModel === "Policy" ? 'md:grid-cols-2' : ''}`}>
+                            <section className="bg-white p-6 rounded-3xl border border-slate-100 space-y-6 shadow-sm">
+                                <h4 className="text-lg font-black text-slate-800 tracking-tight">Model</h4>
+                                <div className="flex gap-8 ml-2">
+                                    <label className="flex items-center gap-4 cursor-pointer group">
+                                        <div className="relative flex items-center justify-center"><input type="radio" checked={botModel === "AI"} onChange={() => setBotModel("AI")} className="peer appearance-none w-6 h-6 rounded-full border-2 border-slate-200 checked:border-[#8B5CF6] transition-all" /><div className="absolute w-3 h-3 rounded-full bg-transparent peer-checked:bg-[#8B5CF6] transition-all" /></div>
+                                        <span className={`text-base font-black ${botModel === "AI" ? 'text-slate-800' : 'text-slate-400'}`}>AI</span>
+                                    </label>
+                                    <label className="flex items-center gap-4 cursor-pointer group">
+                                        <div className="relative flex items-center justify-center"><input type="radio" checked={botModel === "Policy"} onChange={() => setBotModel("Policy")} className="peer appearance-none w-6 h-6 rounded-full border-2 border-slate-200 checked:border-[#8B5CF6] transition-all" /><div className="absolute w-3 h-3 rounded-full bg-transparent peer-checked:bg-[#8B5CF6] transition-all" /></div>
+                                        <span className={`text-base font-black ${botModel === "Policy" ? 'text-slate-800' : 'text-slate-400'}`}>Policy</span>
+                                    </label>
+                                </div>
+                            </section>
 
-                        {botModel === "Policy" && (
+                            {botModel === "Policy" && (
+                            <section className="bg-white p-6 rounded-3xl border border-slate-100 space-y-6 shadow-sm flex flex-col justify-center">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                    <div className="space-y-1">
+                                        <h4 className="text-lg font-black text-slate-800 tracking-tight">Visibility</h4>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Make this bot strategy public</p>
+                                    </div>
+                                    <div className="flex bg-slate-100 p-1.5 rounded-2xl shadow-inner gap-1 w-fit">
+                                        <button type="button" onClick={() => setIsPublic(false)} className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${!isPublic ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>Private</button>
+                                        <button type="button" onClick={() => setIsPublic(true)} className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${isPublic ? 'bg-[#8B5CF6] text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>Public</button>
+                                    </div>
+                                </div>
+                            </section>
+                            )}
+                        </div>
+                        )}
+
+                        {(botModel === "Policy" || activeTab === "Backtest") && (
                             <div className="space-y-8 animate-in fade-in slide-in-from-top-4 duration-500">
                                 {/* Advance Setting */}
                                 <div className="space-y-4">
