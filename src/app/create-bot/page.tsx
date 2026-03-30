@@ -15,7 +15,12 @@ import { useRouter } from "next/navigation";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 // --- Configuration ---
+// BOT_API_URL is for the local bot engine (spawn/backtest)
 const BOT_API_URL = process.env.NEXT_PUBLIC_BOT_API_URL || "http://localhost:8000";
+// API_URL is the main backend (users, bots, subscriptions)
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://trading-bot-api-sigma.vercel.app";
+// Feature flag: allow deploy without credential verification (enabled here so no env change required)
+const ENABLE_DEPLOY_NO_VERIFY = true;
 const INDICATOR_OPTIONS = ["RSI", "SMA", "EMA", "MACD", "STOCH", "ATR", "BBANDS", "OBV", "CLOSE", "OPEN", "HIGH", "LOW", "ADX", "DZV", "VWAP", "VOLUME", "HIGHN", "LOWN", "KELTNER", "DONCHIAN", "CHOP", "CRSI", "SUPERTREND"];
 const CONDITION_OPTIONS = [{ label: "Cross Above", value: "CROSS_ABOVE" }, { label: "Cross Below", value: "CROSS_BELOW" }, { label: "Greater (>)", value: "GREATER" }, { label: "Less (<)", value: "LESS" }];
 
@@ -41,6 +46,7 @@ export default function CreateBotPage() {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState("Market");
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [checkingAccess, setCheckingAccess] = useState(true);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false); 
     
     const allSymbols = useMemo(() => generateMarketSymbols(), []);
@@ -54,6 +60,8 @@ export default function CreateBotPage() {
     const [backtestData, setBacktestData] = useState<any>(null);
     const [isVerified, setIsVerified] = useState(false);
     const [isVerifying, setIsVerifying] = useState(false);
+    // Local toggle to bypass credential verification (default off)
+    const [bypassVerify, setBypassVerify] = useState(false);
     const [cashBalance, setCashBalance] = useState<number | null>(null);
 
     const [basicInfo, setBasicInfo] = useState({ stock: "", assigned_capital: "", symbol_type: "STOCK" });
@@ -111,6 +119,84 @@ export default function CreateBotPage() {
         finally { setIsVerifying(false); }
     };
 
+    // --- Access check on mount (use GET /user/:userId) ---
+    useEffect(() => {
+        const checkAccess = async () => {
+            const token = localStorage.getItem("token");
+            const userId = localStorage.getItem("user_id");
+
+            if (!token || !userId) {
+                router.push("/");
+                return;
+            }
+
+            try {
+                // Call the canonical user endpoint which includes bots and subscription info.
+                // Some backends expose /user/:id and others /users/:id — try both.
+                let user: any = null;
+                try {
+                    const res = await axios.get(`${API_URL}/user/${userId}`, {
+                        headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' }
+                    });
+                    user = res.data || {};
+                } catch (firstErr: any) {
+                    // If first attempt returned 404, try alternate plural route
+                    if (firstErr?.response?.status === 404) {
+                        try {
+                            const res2 = await axios.get(`${API_URL}/users/${userId}`, {
+                                headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' }
+                            });
+                            user = res2.data || {};
+                        } catch (secondErr: any) {
+                            // propagate original error for logging/handling below
+                            throw secondErr || firstErr;
+                        }
+                    } else {
+                        throw firstErr;
+                    }
+                }
+
+                // Ensure we have a user object
+                user = user || {};
+                const userBots = Array.isArray(user.bots) ? user.bots : [];
+
+                // If the user has no bots at all -> allow immediate creation
+                if (userBots.length === 0) {
+                    setCheckingAccess(false);
+                    return;
+                }
+
+                // If user has bots, check for subscription information
+                // Two places may indicate subscription: top-level subscriptionStart/EndDate or nested subscription object
+                const sub = user.subscription || null;
+                const subEnd = user.subscriptionEndDate ? new Date(user.subscriptionEndDate) : null;
+
+                let hasActiveSub = false;
+
+                if (sub && (sub.id || sub.name)) {
+                    hasActiveSub = true;
+                } else if (subEnd instanceof Date && !isNaN(subEnd.getTime())) {
+                    // consider active if end date is in the future
+                    hasActiveSub = subEnd.getTime() > Date.now();
+                }
+
+                if (!hasActiveSub) {
+                    alert("You need an active subscription to create additional bots. Redirecting to subscription page.");
+                    router.push("/subscription");
+                    return;
+                }
+            } catch (err: any) {
+                console.error("Access check failed:", err?.message || err);
+                router.push("/");
+                return;
+            } finally {
+                setCheckingAccess(false);
+            }
+        };
+
+        checkAccess();
+    }, [router]);
+
     // --- Handlers ---
     const updateCondition = (rid: number, cid: number, f: string, v: any) => 
         setRules(rules.map(r => r.id === rid ? { ...r, conditions: r.conditions.map((c:any) => c.id === cid ? { ...c, [f]: v } : c) } : r));
@@ -164,9 +250,12 @@ export default function CreateBotPage() {
             alert(`❌ Deployment Failed: Please fill in the following fields: ${missingFields.join(", ")}`);
             return;
         }
+        // Allow bypass in development when feature flag is enabled and user checks the bypass box
         if (!isVerified) {
-            alert("❌ Deployment Failed: Please verify your credentials before deploying.");
-            return;
+            if (!(ENABLE_DEPLOY_NO_VERIFY && bypassVerify)) {
+                alert("❌ Deployment Failed: Please verify your credentials before deploying.");
+                return;
+            }
         }
 
         setIsSubmitting(true);
@@ -195,6 +284,13 @@ export default function CreateBotPage() {
         finally { setIsSubmitting(false); }
     };
 
+    if (checkingAccess) return (
+        <div className="h-screen w-full flex flex-col items-center justify-center bg-white text-black">
+            <Loader2 className="animate-spin text-[#8200DB] mb-4" size={44} />
+            <p className="font-bold tracking-tight">Checking account and subscription status...</p>
+        </div>
+    );
+
     return (
         <div className="flex min-h-screen bg-[#FDFCFE] font-sans text-slate-800 relative">
             <aside className={`fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 md:sticky md:top-0 md:h-screen md:translate-x-0 ${isSidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"}`}><Sidebar /></aside>
@@ -216,7 +312,6 @@ export default function CreateBotPage() {
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Stock</label>
                                 <div className="relative">
                                     <input value={basicInfo.stock} onChange={e => { const val = e.target.value.toUpperCase(); setBasicInfo({...basicInfo, stock: val, symbol_type: getSymbolType(val)}); setFilteredSymbols(allSymbols.filter(s => s.includes(val)).slice(0, 10)); setShowSuggestions(val.length > 0); }} className="w-full p-3 bg-slate-50 border-none rounded-xl outline-none font-bold text-slate-900 shadow-sm text-sm" placeholder="Symbol" />
-                                    <Search className="w-4 h-4 text-slate-400 absolute right-4 top-3.5" />
                                     {showSuggestions && (<div className="absolute z-50 w-full bg-white border rounded-xl shadow-2xl mt-1 max-h-40 overflow-y-auto">{filteredSymbols.map(s => <div key={s} onClick={() => { setBasicInfo({...basicInfo, stock: s, symbol_type: getSymbolType(s)}); setShowSuggestions(false); }} className="px-4 py-2 hover:bg-purple-50 cursor-pointer font-bold text-xs border-b last:border-0">{s}</div>)}</div>)}
                                 </div>
                             </div>
@@ -248,6 +343,12 @@ export default function CreateBotPage() {
                                 </button>
                                 {isVerified && cashBalance !== null && (
                                     <div className="text-sm font-black text-emerald-600 bg-emerald-50 px-5 py-3 rounded-2xl animate-in fade-in slide-in-from-left-2">Cash Balance: {cashBalance.toLocaleString()} ฿</div>
+                                )}
+                                {ENABLE_DEPLOY_NO_VERIFY && (
+                                    <div className="mt-3 flex items-center gap-2 text-sm">
+                                        <input id="bypassVerify" type="checkbox" checked={bypassVerify} onChange={() => setBypassVerify(!bypassVerify)} className="w-4 h-4" />
+                                        <label htmlFor="bypassVerify" className="text-sm font-medium text-rose-600">Allow deploy without verification (dev only)</label>
+                                    </div>
                                 )}
                             </div>
                         </section>
