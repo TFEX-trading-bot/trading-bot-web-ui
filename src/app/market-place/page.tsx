@@ -9,7 +9,7 @@ import ProfileDropdown from "@/components/ProfileDropdown";
 // ✅ นำเข้า useRouter สำหรับการเปลี่ยนหน้า
 import { useRouter } from "next/navigation";
 
-const API_URL = "https://trading-bot-api-sigma.vercel.app";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://trading-bot-api-sigma.vercel.app";
 
 const cardColors = [
   "from-blue-500 to-indigo-600",
@@ -31,7 +31,7 @@ export default function MarketPlacePage() {
       const botRes = await axios.get(`${API_URL}/bots`);
       
       const filteredBots = botRes.data.filter((bot: any) => 
-        bot.public === true && bot.botType === "POLICY"
+        bot.public === true && (bot.botType === "EQUITY" || bot.botType === "DERIVATIVE")
       );
 
       const botsWithDetails = await Promise.all(
@@ -163,7 +163,9 @@ export default function MarketPlacePage() {
                   <div className="mb-6 flex-grow">
                     <div className="flex items-baseline gap-2">
                       <h3 className="text-2xl font-black text-slate-900 tracking-tight">{bot.stock}</h3>
-                      <span className="text-[10px] font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-md uppercase tracking-wider">Policy</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider ${bot.botType === 'DERIVATIVE' ? 'bg-amber-50 text-amber-600' : 'bg-purple-50 text-purple-600'}`}>
+                        {bot.botType}
+                      </span>
                     </div>
                   </div>
 
