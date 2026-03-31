@@ -330,6 +330,7 @@ export default function CreateBotPage() {
             };
             await axios.post(`${BOT_API_URL}/spawn-bot`, payload);
             alert("✅ Bot Strategy Deployed Successfully!");
+            router.push("/my-bot");
         } catch (error: any) { alert("❌ Deployment Error: " + error.message); } 
         finally { setIsSubmitting(false); }
     };
