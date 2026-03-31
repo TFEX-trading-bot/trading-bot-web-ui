@@ -20,7 +20,7 @@ const BOT_API_URL = process.env.NEXT_PUBLIC_BOT_API_URL || "http://localhost:800
 // API_URL is the main backend (users, bots, subscriptions)
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://trading-bot-api-sigma.vercel.app";
 // Feature flag: allow deploy without credential verification (enabled here so no env change required)
-const ENABLE_DEPLOY_NO_VERIFY = true;
+const ENABLE_DEPLOY_NO_VERIFY = false;
 const INDICATOR_OPTIONS = ["RSI", "SMA", "EMA", "MACD", "STOCH", "ATR", "BBANDS", "OBV", "CLOSE", "OPEN", "HIGH", "LOW", "ADX", "DZV", "VWAP", "VOLUME", "HIGHN", "LOWN", "KELTNER", "DONCHIAN", "CHOP", "CRSI", "SUPERTREND"];
 const CONDITION_OPTIONS = [{ label: "Cross Above", value: "CROSS_ABOVE" }, { label: "Cross Below", value: "CROSS_BELOW" }, { label: "Greater (>)", value: "GREATER" }, { label: "Less (<)", value: "LESS" }];
 
@@ -64,6 +64,8 @@ export default function CreateBotPage() {
     // Local toggle to bypass credential verification (default off)
     const [bypassVerify, setBypassVerify] = useState(false);
     const [cashBalance, setCashBalance] = useState<number | null>(null);
+    // store fetched user data (includes bots and subscription)
+    const [userData, setUserData] = useState<any>(null);
 
     const [basicInfo, setBasicInfo] = useState({ stock: "", assigned_capital: "", symbol_type: "STOCK" });
     const [auth, setAuth] = useState({ 
@@ -120,6 +122,13 @@ export default function CreateBotPage() {
         finally { setIsVerifying(false); }
     };
 
+    // Ensure visibility is always false for AI models and clear the UI state when switching
+    useEffect(() => {
+        if (botModel === "AI") {
+            setIsPublic(false);
+        }
+    }, [botModel]);
+
     // --- Access check on mount (use GET /user/:userId) ---
     useEffect(() => {
         const checkAccess = async () => {
@@ -159,6 +168,8 @@ export default function CreateBotPage() {
 
                 // Ensure we have a user object
                 user = user || {};
+                // persist user object for later checks (submit time)
+                setUserData(user);
                 const userBots = Array.isArray(user.bots) ? user.bots : [];
 
                 // If the user has no bots at all -> allow immediate creation
@@ -182,8 +193,8 @@ export default function CreateBotPage() {
                 }
 
                 if (!hasActiveSub) {
-                    alert("You need an active subscription to create additional bots. Redirecting to subscription page.");
-                    router.push("/subscription");
+                    alert("You need an active subscription to create additional bots. Redirecting to pricing page.");
+                    router.push("/pricing");
                     return;
                 }
             } catch (err: any) {
@@ -257,6 +268,44 @@ export default function CreateBotPage() {
                 alert("❌ Deployment Failed: Please verify your credentials before deploying.");
                 return;
             }
+        }
+
+        // --- Enforce subscription bot limit before deploying ---
+        try {
+            // ensure we have user data (may have been set on mount); if not, fetch it now
+            let user = userData;
+            if (!user) {
+                const token = localStorage.getItem("token");
+                const userId = localStorage.getItem("user_id");
+                if (token && userId) {
+                    try {
+                        const res = await axios.get(`${API_URL}/user/${userId}`, { headers: { Authorization: `Bearer ${token}` } });
+                        user = res.data || {};
+                    } catch (firstErr: any) {
+                        if (firstErr?.response?.status === 404) {
+                            const res2 = await axios.get(`${API_URL}/users/${userId}`, { headers: { Authorization: `Bearer ${token}` } });
+                            user = res2.data || {};
+                        } else {
+                            throw firstErr;
+                        }
+                    }
+                    setUserData(user);
+                }
+            }
+
+            const existingBots = Array.isArray(user?.bots) ? user.bots : [];
+            // subscription may be nested in user.subscription or present as subscription.botNumber
+            const botNumber = user?.subscription?.botNumber ?? user?.subscription?.bot_number ?? null;
+            if (botNumber != null && Number(existingBots.length) >= Number(botNumber)) {
+                alert("❌ Bot limit reached: You have reached the maximum number of bots for your subscription. Please upgrade your subscription to create more bots.");
+                router.push("/pricing");
+                return;
+            }
+        } catch (err: any) {
+            console.error("Failed to verify subscription limits before deploy:", err?.message || err);
+            // On error we don't block the user aggressively; optionally allow deploy or block — here we choose to block to be safe
+            alert("Unable to verify subscription status. Please try again or contact support.");
+            return;
         }
 
         setIsSubmitting(true);
