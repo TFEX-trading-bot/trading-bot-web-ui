@@ -18,7 +18,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 // BOT_API_URL is for the local bot engine (spawn/backtest)
 const BOT_API_URL = process.env.NEXT_PUBLIC_BOT_API_URL || "http://localhost:8000";
 // API_URL is the main backend (users, bots, subscriptions)
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://trading-bot-api-sigma.vercel.app";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 // Feature flag: allow deploy without credential verification (enabled here so no env change required)
 const ENABLE_DEPLOY_NO_VERIFY = false;
 const INDICATOR_OPTIONS = ["RSI", "SMA", "EMA", "MACD", "STOCH", "ATR", "BBANDS", "OBV", "CLOSE", "OPEN", "HIGH", "LOW", "ADX", "DZV", "VWAP", "VOLUME", "HIGHN", "LOWN", "KELTNER", "DONCHIAN", "CHOP", "CRSI", "SUPERTREND"];

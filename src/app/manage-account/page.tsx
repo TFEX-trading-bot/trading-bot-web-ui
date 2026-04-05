@@ -9,8 +9,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import PaymentModal from "@/components/PaymentModal";
 import axios from "axios";
 
-// ✅ เชื่อมต่อกับ API บน Vercel
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://trading-bot-api-sigma.vercel.app";
+// ✅ เชื่อมต่อกับ API (Fallback เป็น Localhost 4000)
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 // ✅ เปลี่ยนจาก export default ProfilePage เป็น Component ธรรมดา
 function ProfileContent() {
