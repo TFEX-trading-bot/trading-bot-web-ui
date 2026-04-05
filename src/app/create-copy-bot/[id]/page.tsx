@@ -14,6 +14,9 @@ const getSymbolType = (symbol: string) => {
     return isDerivative ? "DERIVATIVE" : "EQUITY";
 };
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const BOT_API_URL = process.env.NEXT_PUBLIC_BOT_API_URL || "http://localhost:8000";
+
 export default function CreateBotPage() {
   const params = useParams();
   const router = useRouter();
@@ -41,7 +44,7 @@ export default function CreateBotPage() {
   const fetchPublicBot = useCallback(async () => {
     if (!botIdFromUrl) return;
     try {
-      const res = await axios.get(`https://trading-bot-api-sigma.vercel.app/bots/public/${botIdFromUrl}`);
+      const res = await axios.get(`${API_URL}/bots/public/${botIdFromUrl}`);
       setPublicBotData(res.data);
     } catch (err) {
       console.error("Fetch Public Bot Error:", err);
@@ -74,7 +77,7 @@ export default function CreateBotPage() {
     setIsVerifying(true);
     try {
       const verifyPayload = { broker_id, app_code, app_id, app_secret, account_no, pin };
-      const response = await axios.post("http://localhost:8000/verify-credentials", verifyPayload);
+      const response = await axios.post(`${BOT_API_URL}/verify-credentials`, verifyPayload);
       
       if (response.data.status === "success") {
         setIsVerified(true);
@@ -148,8 +151,8 @@ export default function CreateBotPage() {
         }
       };
 
-      await axios.patch(`${process.env.NEXT_PUBLIC_API_URL}/bots/${botIdFromUrl}/copy`);
-      const response = await axios.post("http://localhost:8000/spawn-bot", payload);
+      await axios.patch(`${API_URL}/bots/${botIdFromUrl}/copy`);
+      const response = await axios.post(`${BOT_API_URL}/spawn-bot`, payload);
       
       if (response.status === 200 || response.status === 201) {
         alert("✅ Bot deployed successfully!");

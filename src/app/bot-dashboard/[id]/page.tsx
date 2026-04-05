@@ -29,7 +29,7 @@ interface BotData {
   };
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://trading-bot-api-sigma.vercel.app";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 export default function BotDetailPage() {
   const params = useParams();
