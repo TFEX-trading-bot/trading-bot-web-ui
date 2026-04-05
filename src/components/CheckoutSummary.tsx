@@ -22,10 +22,8 @@ export default function CheckoutSummary({ isOpen, onClose, onConfirm, plan }: Ch
   // --- ส่วนที่ 2: การคำนวณยอดชำระเงิน ---
   // แปลงราคาจาก string ที่มีคอมม่าให้เป็นตัวเลขเพื่อคำนวณ
   const subtotal = parseInt(plan.price.replace(/,/g, ""));
-  // คำนวณภาษีมูลค่าเพิ่ม 7%
-  const vat = subtotal * 0.07;
   // คำนวณยอดรวมทั้งหมด
-  const total = subtotal + vat;
+  const total = subtotal;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -69,10 +67,6 @@ export default function CheckoutSummary({ isOpen, onClose, onConfirm, plan }: Ch
             <div className="flex justify-between text-sm font-bold text-slate-500">
               <span>Subtotal</span>
               <span>฿{subtotal.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between text-sm font-bold text-slate-500">
-              <span>VAT (7%)</span>
-              <span>฿{vat.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             </div>
             <div className="h-px bg-slate-100 my-4" />
             <div className="flex justify-between items-end">
